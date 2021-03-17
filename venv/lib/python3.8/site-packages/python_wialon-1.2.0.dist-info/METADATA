@@ -1,0 +1,55 @@
+Metadata-Version: 2.1
+Name: python-wialon
+Version: 1.2.0
+Summary: Wialon Remote API wrapper for Python.
+Home-page: https://github.com/wialon/python-wialon
+Author: Alex Chernetsky chal@gurtam.com
+License: UNKNOWN
+Download-URL: http://pypi.python.org/pypi/python-wialon/
+Keywords: wialon remote api wrapper
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+Requires-Dist: simplejson
+Requires-Dist: future
+
+Wialon
+=========
+
+`Wialon` is a Python wrapper for Remote Api. (Now with support for Python 3 since v1.0.2)
+
+Installation
+------------
+    pip install python-wialon
+
+Usage
+-----
+
+```python
+from wialon import Wialon, WialonError
+
+try:
+    wialon_api = Wialon()
+    # old username and password login is deprecated, use token login
+    result = wialon_api.token_login(token='YOUR WIALON USER TOKEN')
+    wialon_api.sid = result['eid']
+
+    result = wialon_api.avl_evts()
+
+    wialon_api.core_logout()
+except WialonError as e:
+    pass
+```
+
+API Documentation
+-----------------
+
+[Wialon Remote Api documentation](http://sdk.wialon.com/wiki/en/sidebar/remoteapi/apiref/apiref "Remote Api")
+
+
