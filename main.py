@@ -6,14 +6,15 @@ from wialon import Wialon, WialonError
 
 from telegram import States, comands_types, Orders
 import logging
+import token
 
-bot = Bot(token="1499842056:AAFYtxan0D9w3cyZOZ6Th1Dw68RDRCbfYOA")
+bot = Bot(token=token.telegram_token)
 dp = Dispatcher(bot)
 
 wialon_api = Wialon()
-result = wialon_api.token_login(token='d1dcbcc6fcac65add3de13b53aa92137B0B8283A39C934274F591684CA9222B97461A356')
+result = wialon_api.token_login(token=token.logistics_token)
 wialon_api.sid = result['eid']
-orders = Orders(wialon_object=wialon_api, token='d1dcbcc6fcac65add3de13b53aa92137B0B8283A39C934274F591684CA9222B97461A356')
+orders = Orders(wialon_object=wialon_api, token=token.logistics_token)
 logging.basicConfig(level=logging.INFO)
 
 
