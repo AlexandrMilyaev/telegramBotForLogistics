@@ -1,4 +1,5 @@
 from aiogram.utils.helper import Helper, HelperMode, ListItem
+from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
 
 comands_types = {
@@ -9,11 +10,11 @@ comands_types = {
 }
 
 
-class States(Helper):
-    mode = HelperMode.snake_case
-
-    STATE_GET_COMMAND = ListItem()
-    STATE_CREATE_ROUTS = ListItem()
+class States(StatesGroup):
+    STATE_GET_COMMAND = State()
+    STATE_GET_TAG = State()
+    STATE_GET_ORDERS = State()
+    STATE_CREATE_ROUTS = State()
 
 
 class Orders(Wialon):
