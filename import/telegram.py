@@ -78,7 +78,7 @@ class Orders(Wialon):
             for el in self.orders:
                 orders = el['orders']
                 for name in orders.values():
-                    if name['f'] == 32:
+                    if name['f'] == 32 and name['p']['r'] is None:
                         if name['p']['tags'] == [] or type(name['p']['tags']) == str:
                             tags_value = tags_key.get('No_tags')
                             tags_value = dict(tags_value)

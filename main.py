@@ -80,11 +80,13 @@ async def get_number(message: types.Message, state: FSMContext):
         print(phone.index(int(dict(message.contact)['phone_number'])))
         await message.answer('Ваш номер уже присутствует в списке авторизированиых номеров.\n'
                              'Отправьте команду /help для получения информации'
-                             ' по доступным командам.')
+                             ' по доступным командам.'
+                             , reply_markup=types.ReplyKeyboardRemove())
     except ValueError:
         driver = orders.get_driver(dict(message.contact)['phone_number'])
         if driver is None:
-            await message.answer('Извените, вы отсутствуете в списке разрешонных пользователей')
+            await message.answer('Извените, вы отсутствуете в списке разрешонных пользователей',
+                                 reply_markup=types.ReplyKeyboardRemove())
         else:
             list_pandas = [dict(message.contact)]
             df = df.append(list_pandas)
@@ -92,11 +94,13 @@ async def get_number(message: types.Message, state: FSMContext):
             if driver == 0:
                 await message.answer('Авторизация прошла успешно,'
                                      ' но за вами не закреплен автомобиль.\n'
-                                     ' Обратитесь к диспетчеру для назначения на автомобиль.')
+                                     ' Обратитесь к диспетчеру для назначения на автомобиль.'
+                                     , reply_markup=types.ReplyKeyboardRemove())
             else:
                 await message.answer('Авторизация прошла успешно.\n'
                                      'Отпраьте команду /help для получения информации'
-                                     ' по доступным командам.')
+                                     ' по доступным командам.'
+                                     , reply_markup=types.ReplyKeyboardRemove())
 
     finally:
         phone.clear()
@@ -124,10 +128,17 @@ async def cmd_start(message: types.Message):
     df = pd.read_csv('user.csv', delimiter=',')
     df_user_id = df['user_id'].tolist()
     if user_id in df_user_id:
-        await message.answer("Привет!\nЯ создан для того,\nчто бы ты в суботу мог работать!")
+        data = orders.get_orders()
+        data = data[0]['orders']
+        for key, _ in data.items():
+            if _['n'] == 'Киевский офис':
+                print(_)
+        await message.answer("Эта команда вам не нужна!\n"
+                             "Она нужна разработчику для отладки некотрых функций.")
     else:
         await message.answer('Мы не знакомы.\n'
                              'Пройдите авторизацию, отправив команду /start')
+
 
 @dp.message_handler(commands="start_route")
 async def cmd_start_route(message: types.Message, state: FSMContext):
@@ -143,7 +154,7 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
         print(message.from_user.id)
     else:
         await message.answer('Мы не знакомы.\n'
-                         'Пройдите авторизацию, отправив команду /start')
+                             'Пройдите авторизацию, отправив команду /start')
 
 
 @dp.message_handler(state=States.STATE_GET_TAG, content_types=types.ContentTypes.TEXT)
@@ -156,7 +167,9 @@ async def get_tag(message: types.Message, state: FSMContext):
 
         keyboard.add(types.KeyboardButton('Назад <-'))
         await state.update_data(tag_selected=message.text.casefold())
-        await message.answer('Выбирите нужные заявки. Для выбора другого тега нажмите "Назад"',
+        await message.answer('Выбирите нужные заявки.\n'
+                             'Для выбора другого тега нажмите "Назад <-".\n'
+                             'Для создания маршрута нажмите "Далее ->"',
                              reply_markup=keyboard)
         await States.STATE_GET_ORDERS.set()
     else:
@@ -201,14 +214,39 @@ async def create_route(message: types.Message, state: FSMContext):
         orders.craete_route(list(orders.orders_for_route.keys()), driver)
         orders.orders_for_route.clear()
         orders_list.clear()
-        await message.answer('Маршрут создан')
+        await message.answer('Маршрут создан', reply_markup=types.ReplyKeyboardRemove())
         await state.finish()
     elif message.text == 'Нет':
         orders.orders_for_route.clear()
         orders_list.clear()
-        await States.STATE_GET_COMMAND.set()
-        await message.answer('Отмена создания маршрута!')
+        await message.answer('Отмена создания маршрута!', reply_markup=types.ReplyKeyboardRemove())
         await state.finish()
+
+
+@dp.message_handler(commands="add_orders")
+async def cmd_start_route(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    df = pd.read_csv('user.csv', delimiter=',')
+    df_user_id = df['user_id'].tolist()
+    if user_id in df_user_id:
+        await message.answer('Эта команда пока не работает. С помощью ее вы сможете в будущем '
+                             'добавлять заявки в уже существующий маршрут')
+    else:
+        await message.answer('Мы не знакомы.\n'
+                             'Пройдите авторизацию, отправив команду /start')
+
+
+@dp.message_handler(content_types=types.ContentTypes.TEXT)
+async def text_answer(message: types.Message):
+    user_id = message.from_user.id
+    df = pd.read_csv('user.csv', delimiter=',')
+    df_user_id = df['user_id'].tolist()
+    if user_id in df_user_id:
+        await message.answer('Я вас не понимаю.\n'
+                             'Отправьте команду /help для ознакомления со списком доступных команд')
+    else:
+        await message.answer('Мы не знакомы.\n'
+                             'Пройдите авторизацию, отправив команду /start')
 
 
 if __name__ == '__main__':
