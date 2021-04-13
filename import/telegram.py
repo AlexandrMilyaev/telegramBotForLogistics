@@ -16,6 +16,8 @@ class States(StatesGroup):
     STATE_GET_COMMAND = State()
     STATE_GET_TAG = State()
     STATE_GET_ORDERS = State()
+    STATE_INITIAL_WAREHOUSE = State()
+    STATE_FINAL_WAREHOUSE = State()
     STATE_CREATE_ROUTS = State()
 
     STATE_GET_NUMBER = State()
@@ -29,10 +31,13 @@ class Orders(Wialon):
     orders = None
     user_id = None
     itemIds = 22403020
+    token = None
 
-    def __init__(self, wialon_object, **extra_params):
+    def __init__(self, wialon_object, token,  **extra_params):
         super().__init__(**extra_params)
         self.wialon_object = wialon_object
+        self.token = token
+        print(self.token)
 
     def get_orders(self):
         try:
@@ -52,7 +57,7 @@ class Orders(Wialon):
             }
             orders = self.wialon_object.call('core_search_items', params)
             self.orders = orders['items']
-        except WialonError as e:
+        except Exception as e:
             print(e.args)
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']

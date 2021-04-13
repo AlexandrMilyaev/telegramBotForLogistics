@@ -123,7 +123,7 @@ async def cmd_help(message: types.Message):
 
 
 @dp.message_handler(commands="test")
-async def cmd_start(message: types.Message):
+async def cmd_test(message: types.Message):
     user_id = message.from_user.id
     df = pd.read_csv('user.csv', delimiter=',')
     df_user_id = df['user_id'].tolist()
@@ -131,7 +131,8 @@ async def cmd_start(message: types.Message):
         data = orders.get_orders()
         data = data[0]['orders']
         for key, _ in data.items():
-            if _['n'] == 'Киевский офис':
+            flag = _['f'] & 8
+            if flag:
                 print(_)
         await message.answer("Эта команда вам не нужна!\n"
                              "Она нужна разработчику для отладки некотрых функций.")
@@ -199,7 +200,10 @@ async def get_order(message: types.Message, state: FSMContext):
         keyboard = types.ReplyKeyboardMarkup(row_width=2)
         keyboard.add(types.KeyboardButton('Да'))
         keyboard.add(types.KeyboardButton('Нет'))
-        await message.answer(f'Создать маршрут с заявками {orders_list}?', reply_markup=keyboard)
+        data = ''
+        for _ in orders_list:
+            data += _ + '\n'
+        await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
 
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
