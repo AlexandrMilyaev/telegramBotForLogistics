@@ -11,7 +11,6 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 
-import sqlite3 as sql
 
 import logging
 import config
@@ -25,19 +24,6 @@ def loyaut_keyboard_tags():
         inline_kb_full.add(types.KeyboardButton('{}'.format(keys), callback_data='btn_tags{}'.format(keys)))
     return inline_kb_full
 
-
-con = sql.connect('user.db')
-cur = con.cursor()
-'''
-with con:
-    con.execute("""
-        CREATE TABLE USER (
-            id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            name TEXT
-        );
-    """)
-'''
 
 bot = Bot(token=config.telegram_token)
 storege = MemoryStorage()
@@ -131,7 +117,7 @@ async def cmd_test(message: types.Message):
         data = orders.get_orders()
         data = data[0]['orders']
         for key, _ in data.items():
-            flag = _['f'] & 8
+            flag = _['f'] & 4
             if flag:
                 print(_)
         await message.answer("Эта команда вам не нужна!\n"
@@ -164,7 +150,8 @@ async def get_tag(message: types.Message, state: FSMContext):
         keyboard = types.ReplyKeyboardMarkup(row_width=2)
         keyboard.add(types.KeyboardButton('Далее ->'))
         for tag, order in orders.data_by_tags[message.text].items():
-            keyboard.add(types.KeyboardButton(f'{tag}: {order}'))
+            data = order['n']
+            keyboard.add(types.KeyboardButton(f'{tag}: {data}'))
 
         keyboard.add(types.KeyboardButton('Назад <-'))
         await state.update_data(tag_selected=message.text.casefold())
@@ -179,16 +166,25 @@ async def get_tag(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_GET_ORDERS, content_types=types.ContentTypes.TEXT)
 async def get_order(message: types.Message, state: FSMContext):
+    data = []
+    for _ in orders.orders_list.values():
+        data.append(_['n'])
     if message.text == 'Назад <-':
         keyboard = loyaut_keyboard_tags()
         # await state.update_data(tags=orders.data_by_tags.keys())
         await States.STATE_GET_TAG.set()
         await message.answer('Выбирите тег', reply_markup=keyboard)
 
-    elif message.text[message.text.find(':') + 2:] in orders.orders_list.values():
+    elif message.text[message.text.find(':') + 2:] in data:
         try:
+            '''
             orders.orders_for_route.update({int(message.text[:message.text.find(':')]):
                                                 message.text[message.text.find(':') + 2:]})
+            '''
+            id_orders = int(message.text[:message.text.find(':')])
+            data_orders = orders.orders_list[id_orders]
+            data_orders['f'] = 1
+            orders.orders_for_route.update({id_orders: data_orders})
             orders_list.append(message.text)
             print(orders_list)
             await message.answer(f'Заявка "{message.text}" добавлена в список для состовления маршрута')
@@ -196,14 +192,78 @@ async def get_order(message: types.Message, state: FSMContext):
             await message.answer('Некоректная заявка')
 
     elif message.text == 'Далее ->':
-        await States.STATE_CREATE_ROUTS.set()
+        await States.STATE_INITIAL_WAREHOUSE.set()
         keyboard = types.ReplyKeyboardMarkup(row_width=2)
-        keyboard.add(types.KeyboardButton('Да'))
-        keyboard.add(types.KeyboardButton('Нет'))
-        data = ''
-        for _ in orders_list:
-            data += _ + '\n'
-        await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
+        keyboard.add(types.KeyboardButton('Без склада'))
+        for key, warehouse in orders.warehouse.items():
+            house = warehouse['n']
+            print(warehouse)
+            keyboard.add(types.KeyboardButton(f'{key}: {house}'))
+        await message.answer(f'Выберете начальный склад', reply_markup=keyboard)
+
+
+@dp.message_handler(state=States.STATE_INITIAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
+async def initial_warehouse(message: types.Message, state: FSMContext):
+    if message.text != 'Без склада':
+        try:
+            id_orders = int(message.text[:message.text.find(':')])
+            data_orders = orders.warehouse[id_orders]
+            data_orders['f'] = 260
+            orders.warehouses_for_route.update({id_orders: data_orders})
+            orders_list.insert(0, message.text)
+            print(orders_list)
+            await message.answer(f'Начальный склад "{message.text}" добавлен в список для состовления маршрута')
+            await States.STATE_FINAL_WAREHOUSE.set()
+            keyboard = types.ReplyKeyboardMarkup(row_width=2)
+            keyboard.add(types.KeyboardButton('Без склада'))
+            for key, warehouse in orders.warehouse.items():
+                house = warehouse['n']
+                print(warehouse)
+                keyboard.add(types.KeyboardButton(f'{key}: {house}'))
+            await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
+        except Exception as e:
+            await message.answer('Некоректный склад')
+        else:
+            await States.STATE_FINAL_WAREHOUSE.set()
+            keyboard = types.ReplyKeyboardMarkup(row_width=2)
+            keyboard.add(types.KeyboardButton('Без склада'))
+            for key, warehouse in orders.warehouse.items():
+                house = warehouse['n']
+                print(warehouse)
+                keyboard.add(types.KeyboardButton(f'{key}: {house}'))
+            await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
+
+
+@dp.message_handler(state=States.STATE_FINAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
+async def final_warehouse(message: types.Message, state: FSMContext):
+    if message.text != 'Без склада':
+        try:
+            id_orders = int(message.text[:message.text.find(':')])
+            data_orders = orders.warehouse[id_orders]
+            data_orders['f'] = 264
+            orders.warehouses_for_route.update({id_orders: data_orders})
+            orders_list.append(message.text)
+            print(orders_list)
+            await message.answer(f'Конечный склад "{message.text}" добавлен в список для состовления маршрута')
+            await States.STATE_FINAL_WAREHOUSE.set()
+            keyboard = types.ReplyKeyboardMarkup(row_width=2)
+            keyboard.add(types.KeyboardButton('Да'))
+            keyboard.add(types.KeyboardButton('Нет'))
+            data = ''
+            for _ in orders_list:
+                data += _ + '\n'
+            await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
+        except Exception as e:
+            await message.answer('Некоректный склад')
+        else:
+            await States.STATE_CREATE_ROUTS.set()
+            keyboard = types.ReplyKeyboardMarkup(row_width=2)
+            keyboard.add(types.KeyboardButton('Да'))
+            keyboard.add(types.KeyboardButton('Нет'))
+            data = ''
+            for _ in orders_list:
+                data += _ + '\n'
+            await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
 
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
@@ -215,8 +275,11 @@ async def create_route(message: types.Message, state: FSMContext):
         pointer_user_id = user_id.index(message.from_user.id)
         phone = phone[pointer_user_id]
         driver = orders.get_driver(str(phone))
-        orders.craete_route(list(orders.orders_for_route.keys()), driver)
+        orders.craete_route(list(orders.orders_for_route.values()),
+                            list(orders.warehouses_for_route.values()),
+                            driver)
         orders.orders_for_route.clear()
+        orders.warehouses_for_route.clear()
         orders_list.clear()
         await message.answer('Маршрут создан', reply_markup=types.ReplyKeyboardRemove())
         await state.finish()

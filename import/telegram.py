@@ -25,9 +25,11 @@ class States(StatesGroup):
 
 class Orders(Wialon):
     orders_for_route = dict()
+    warehouses_for_route = dict()
     orders_list = dict()
     raw_data = None
     data_by_tags = None
+    warehouse = dict()
     orders = None
     user_id = None
     itemIds = 22403020
@@ -87,25 +89,28 @@ class Orders(Wialon):
                         if name['p']['tags'] == [] or type(name['p']['tags']) == str:
                             tags_value = tags_key.get('No_tags')
                             tags_value = dict(tags_value)
-                            tags_value.update({name['id']: name['n']})
+                            tags_value.update({name['id']: name})
                             tags_key['No_tags'] = tags_value
-                            self.orders_list.update({name['id']: name['n']})
+                            self.orders_list.update({name['id']: name})
                         else:
                             for tags in name['p']['tags']:
                                 if tags_key.get(tags) is None:
                                     tags_key.update({tags: ''})
-                                    tags_key[tags] = {name['id']: name['n']}
-                                    self.orders_list.update({name['id']: name['n']})
+                                    tags_key[tags] = {name['id']: name}
+                                    self.orders_list.update({name['id']: name})
                                 else:
                                     tags_value = tags_key.get(tags)
-                                    tags_value.update({name['id']: name['n']})
+                                    tags_value.update({name['id']: name})
                                     tags_key[tags] = tags_value
-                                    self.orders_list.update({name['id']: name['n']})
+                                    self.orders_list.update({name['id']: name})
+                    elif name['f'] & 4 and name['p']['r'] is None:
+                        self.warehouse.update({name['id']: name})
+                        print(name)
 
         self.data_by_tags = tags_key
         return self.orders
 
-    def craete_route(self, orders_id: list, driver: int):
+    def craete_route(self, orders_id: list, warehouses: list, driver: int):
         gis = {
             "provider": 1,  # 0-нет, 1-gurtam, 2-google
             "addPoints": 1,  # 0-не возвращать трек, 1-вернуть трек
@@ -115,7 +120,7 @@ class Orders(Wialon):
             "itemId": self.itemIds,
             "orders": orders_id,
             "units": [driver],
-            "warehouses": [],
+            "warehouses": warehouses,
             "criterions": {},
             "flags": 3,
             "gis": gis
@@ -127,9 +132,13 @@ class Orders(Wialon):
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']
             response = self.wialon_object.call('order_optimize', params)
+        print(response)
         self.get_orders()
         route_id = int(time.time())
         order_list = list()
+        order_warehouse = orders_id
+        order_warehouse.extend(warehouses)
+
         try:
             for keys, data in response.items():
                 if keys == 'details':
@@ -141,11 +150,22 @@ class Orders(Wialon):
                 else:
                     vt = route_id
                     i = 0
+                    try:
+                        initial_warehouses = warehouses[0]
+                        data_warehouse = dict()
+
+                    except Exception as e:
+                        print('except: ', e.args)
                     for _ in data['orders']:
+                        data_orders = dict()
                         number = _['id']
                         vt += _['tm']
-                        data_orders = self.orders[0]['orders'][f'{orders_id[number]}']
-                        data_orders['f'] = 1
+                        if type(order_warehouse[number]) is int:
+                            data_orders = self.orders[0]['orders'][f'{order_warehouse[number]}']
+                            data_orders['f'] = 1
+                        elif type(order_warehouse[number]) is dict:
+                            data_orders = order_warehouse[number]
+
                         data_orders['p']['r'] = {
                             "id": route_id,  # id маршрута
                             "i": i,  # порядковый номер (0..)
@@ -164,9 +184,8 @@ class Orders(Wialon):
                         data_orders['tt'] = time_modul + 86400
                         data_orders['tf'] = time_modul
                         data_orders['callMode'] = 'create'
-
-                        i += 1
                         order_list.append(data_orders)
+                        i += 1
         except WialonError as e:
             print(e.args)
 
