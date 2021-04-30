@@ -22,6 +22,11 @@ class States(StatesGroup):
 
     STATE_GET_NUMBER = State()
 
+    STATE_INITIAL_ADD_ORDERS = State()
+    STATE_GET_TAG_ADD_ORDERS = State()
+    STARE_GET_ORDERS_ADD_ORDERS = State()
+    STATE_FINAL_ADD_ORDERS = State()
+
 
 class Orders(Wialon):
     orders_for_route = dict()
@@ -122,7 +127,7 @@ class Orders(Wialon):
             "units": [driver],
             "warehouses": warehouses,
             "criterions": {},
-            "flags": 3,
+            "flags": 131,
             "gis": gis
         }
         try:
@@ -148,32 +153,60 @@ class Orders(Wialon):
                 elif keys == 'summary':
                     pass
                 else:
-                    vt = route_id
-                    i = 0
-                    try:
-                        initial_warehouses = warehouses[0]
-                        data_warehouse = dict()
+                    zero_time = route_id % 86400
+                    zero_time = route_id - zero_time + time.altzone
 
-                    except Exception as e:
-                        print('except: ', e.args)
+                    i = 0
+                    t_prev = data['orders'][0]['tm']
+                    ml_prev = 0
+                    t_now = 0
+                    t = 0
+                    vt = route_id % 86400
                     for _ in data['orders']:
                         data_orders = dict()
                         number = _['id']
-                        vt += _['tm']
+                        '''
+                        if i == 0:
+                            t_prev = _['tm']
+                            t_now = _['tm']
+                            t = 0
+                        else:
+                            t_now = _['tm']
+                            t = t_now - t_prev
+                        '''
                         if type(order_warehouse[number]) is int:
                             data_orders = self.orders[0]['orders'][f'{order_warehouse[number]}']
                             data_orders['f'] = 1
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
-
-                        data_orders['p']['r'] = {
-                            "id": route_id,  # id маршрута
-                            "i": i,  # порядковый номер (0..)
-                            "m": _['ml'],  # пробег с предыдущей точки по плану, м
-                            "t": _['tm'],  # время с предыдущей точки по плану, сек
-                            "vt": vt,  # время посещения по плану, UNIX_TIME
-                            "ndt": 300  # время, за которое должно прийти уведомление, с
-                        }
+                        if ((route_id + ~time.altzone + 1) % 86400) >= _['tm']:
+                            tm = _['tm'] - t_prev
+                            ml = _['ml'] - ml_prev
+                            vt = vt + tm
+                            data_orders['p']['r'] = {
+                                "id": route_id,  # id маршрута
+                                "i": i,  # порядковый номер (0..)
+                                "m": ml,  # пробег с предыдущей точки по плану, м
+                                "t": tm,  # время с предыдущей точки по плану, сек
+                                "vt": _['tm'],  # время посещения по плану, UNIX_TIME
+                                "ndt": 300  # время, за которое должно прийти уведомление, с
+                            }
+                            t_prev = _['tm']
+                            ml_prev = _['ml']
+                        else:
+                            tm = _['tm'] - t_prev
+                            ml = _['ml'] - ml_prev
+                            vt = _['tm']
+                            data_orders['p']['r'] = {
+                                "id": route_id,  # id маршрута
+                                "i": i,  # порядковый номер (0..)
+                                "m": ml,  # пробег с предыдущей точки по плану, м
+                                "t": tm,  # время с предыдущей точки по плану, сек
+                                "vt": vt,  # время посещения по плану, UNIX_TIME
+                                "ndt": 300  # время, за которое должно прийти уведомление, с
+                            }
+                            t_prev = _['tm']
+                            ml_prev = _['ml']
                         data_orders['u'] = keys
                         data_orders['rp'] = _['p']
                         data_orders['uid'] = 0
@@ -181,8 +214,8 @@ class Orders(Wialon):
                         data_orders['st'] = 0
                         time_modul = route_id % 86400
                         time_modul = route_id - time_modul + time.altzone
-                        data_orders['tt'] = time_modul + 86400
-                        data_orders['tf'] = time_modul
+                        # data_orders['tt'] = time_modul + 86400
+                        # data_orders['tf'] = time_modul
                         data_orders['callMode'] = 'create'
                         order_list.append(data_orders)
                         i += 1
@@ -196,6 +229,7 @@ class Orders(Wialon):
             "callMode": 'create'
         }
         response = self.wialon_object.call('order_route_update', params)
+        print(params)
         return response
 
     def get_driver(self, phone_number: str):

@@ -11,6 +11,8 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 
+import  time
+
 
 import logging
 import config
@@ -20,6 +22,7 @@ import pandas as pd
 
 def loyaut_keyboard_tags():
     inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
+
     for keys in orders.data_by_tags.keys():
         inline_kb_full.add(types.KeyboardButton('{}'.format(keys), callback_data='btn_tags{}'.format(keys)))
     return inline_kb_full
@@ -184,9 +187,13 @@ async def get_order(message: types.Message, state: FSMContext):
             id_orders = int(message.text[:message.text.find(':')])
             data_orders = orders.orders_list[id_orders]
             data_orders['f'] = 1
+            time_1 = int(time.time())
+            time_1 = time_1 - (time_1 % 86400)  + time.altzone
+            data_orders['tf'] = time_1 + data_orders['tf']
+            data_orders['tt'] = time_1 + data_orders['tt']
             orders.orders_for_route.update({id_orders: data_orders})
             orders_list.append(message.text)
-            print(orders_list)
+            #print(orders_list)
             await message.answer(f'Заявка "{message.text}" добавлена в список для состовления маршрута')
         except Exception as e:
             await message.answer('Некоректная заявка')
@@ -197,7 +204,7 @@ async def get_order(message: types.Message, state: FSMContext):
         keyboard.add(types.KeyboardButton('Без склада'))
         for key, warehouse in orders.warehouse.items():
             house = warehouse['n']
-            print(warehouse)
+            #print(warehouse)
             keyboard.add(types.KeyboardButton(f'{key}: {house}'))
         await message.answer(f'Выберете начальный склад', reply_markup=keyboard)
 
@@ -209,29 +216,37 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
             id_orders = int(message.text[:message.text.find(':')])
             data_orders = orders.warehouse[id_orders]
             data_orders['f'] = 260
+            print(data_orders)
+            time_1 = int(time.time())
+            print(time_1)
+            time_1 = time_1 - (time_1 % 86400)  + time.altzone
+            print(time_1)
+            data_orders['tf'] = time_1 + data_orders['tf']
+            data_orders['tt'] = time_1 + data_orders['tt']
             orders.warehouses_for_route.update({id_orders: data_orders})
             orders_list.insert(0, message.text)
-            print(orders_list)
+            #print(orders_list)
             await message.answer(f'Начальный склад "{message.text}" добавлен в список для состовления маршрута')
             await States.STATE_FINAL_WAREHOUSE.set()
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
             keyboard.add(types.KeyboardButton('Без склада'))
             for key, warehouse in orders.warehouse.items():
                 house = warehouse['n']
-                print(warehouse)
+                #print(warehouse)
                 keyboard.add(types.KeyboardButton(f'{key}: {house}'))
             await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
         except Exception as e:
             await message.answer('Некоректный склад')
-        else:
-            await States.STATE_FINAL_WAREHOUSE.set()
-            keyboard = types.ReplyKeyboardMarkup(row_width=2)
-            keyboard.add(types.KeyboardButton('Без склада'))
-            for key, warehouse in orders.warehouse.items():
-                house = warehouse['n']
-                print(warehouse)
-                keyboard.add(types.KeyboardButton(f'{key}: {house}'))
-            await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
+    else:
+        await States.STATE_FINAL_WAREHOUSE.set()
+        keyboard = types.ReplyKeyboardMarkup(row_width=2)
+        keyboard.add(types.KeyboardButton('Без склада'))
+        for key, warehouse in orders.warehouse.items():
+            house = warehouse['n']
+            #print(warehouse)
+            keyboard.add(types.KeyboardButton(f'{key}: {house}'))
+        await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
+
 
 
 @dp.message_handler(state=States.STATE_FINAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
@@ -240,12 +255,21 @@ async def final_warehouse(message: types.Message, state: FSMContext):
         try:
             id_orders = int(message.text[:message.text.find(':')])
             data_orders = orders.warehouse[id_orders]
+            print(data_orders)
             data_orders['f'] = 264
+            time_1 = int(time.time())
+            time_1 = time_1 - (time_1 % 86400) + time.altzone
+            print(data_orders['tf'])
+            print(data_orders['tf'])
+            data_orders['tf'] = time_1 + data_orders['tf']
+            data_orders['tt'] = time_1 + data_orders['tt']
+            print(data_orders['tf'])
+            print(data_orders['tt'])
             orders.warehouses_for_route.update({id_orders: data_orders})
             orders_list.append(message.text)
             print(orders_list)
             await message.answer(f'Конечный склад "{message.text}" добавлен в список для состовления маршрута')
-            await States.STATE_FINAL_WAREHOUSE.set()
+            await States.STATE_CREATE_ROUTS.set()
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
             keyboard.add(types.KeyboardButton('Да'))
             keyboard.add(types.KeyboardButton('Нет'))
@@ -255,15 +279,15 @@ async def final_warehouse(message: types.Message, state: FSMContext):
             await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
         except Exception as e:
             await message.answer('Некоректный склад')
-        else:
-            await States.STATE_CREATE_ROUTS.set()
-            keyboard = types.ReplyKeyboardMarkup(row_width=2)
-            keyboard.add(types.KeyboardButton('Да'))
-            keyboard.add(types.KeyboardButton('Нет'))
-            data = ''
-            for _ in orders_list:
-                data += _ + '\n'
-            await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
+    else:
+        await States.STATE_CREATE_ROUTS.set()
+        keyboard = types.ReplyKeyboardMarkup(row_width=2)
+        keyboard.add(types.KeyboardButton('Да'))
+        keyboard.add(types.KeyboardButton('Нет'))
+        data = ''
+        for _ in orders_list:
+            data += _ + '\n'
+        await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
 
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
@@ -275,6 +299,7 @@ async def create_route(message: types.Message, state: FSMContext):
         pointer_user_id = user_id.index(message.from_user.id)
         phone = phone[pointer_user_id]
         driver = orders.get_driver(str(phone))
+
         orders.craete_route(list(orders.orders_for_route.values()),
                             list(orders.warehouses_for_route.values()),
                             driver)
@@ -291,16 +316,173 @@ async def create_route(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(commands="add_orders")
-async def cmd_start_route(message: types.Message, state: FSMContext):
+async def cmd_add_orders(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     df = pd.read_csv('user.csv', delimiter=',')
     df_user_id = df['user_id'].tolist()
     if user_id in df_user_id:
-        await message.answer('Эта команда пока не работает. С помощью ее вы сможете в будущем '
-                             'добавлять заявки в уже существующий маршрут')
+        phone = df['phone_number'].tolist()
+        pointer_user_id = df_user_id.index(user_id)
+        phone = phone[pointer_user_id]
+        driver = orders.get_driver(str(phone))
+        print(driver)
+
+        spec = {
+            "itemsType": "avl_resource",
+            "propType": "propitemname",
+            "propName": "orders",
+            "propValueMask": '*',
+            "sortType": "orders"
+        }
+        params = {
+            "spec": spec,
+            "force": 1,
+            "flags": 524288,
+            "from": 0,
+            "to": 0
+        }
+        request = wialon_api.call('core_search_items', params)
+
+        orders_route = list()
+        for key, route in request['items'][0]['order_routes'].items():
+            if route['st']['u'] == driver and route['st']['s'] == 1:
+                orders_route = route['ord']
+                print(orders_route)
+        if len(orders_route) != 0:
+            data = ''
+            for key, order in request['items'][0]['orders'].items():
+                if order['uid'] in orders_route:
+                    data += f"{order['n']}\n"
+            keyboard = types.ReplyKeyboardMarkup(row_width=2)
+            keyboard.add(types.KeyboardButton('Да'))
+            keyboard.add(types.KeyboardButton('Нет'))
+            await message.answer('Ващ маршрут состоит из следующих заявок:.\n'
+                                 f'{data}'
+                                 'Добавить новую заявку?',
+                                 reply_markup=keyboard)
+            await States.STATE_INITIAL_ADD_ORDERS.set()
+
+        else:
+            await message.answer('За вами не закреплен маршрут.\n'
+                                 'Для создания маршрута воспользуйтесь командой /start_route')
     else:
         await message.answer('Мы не знакомы.\n'
                              'Пройдите авторизацию, отправив команду /start')
+
+
+@dp.message_handler(state=States.STATE_INITIAL_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
+async def initial_add_orders(message: types.Message, state: FSMContext):
+    if message.text == 'Да':
+        await States.STATE_GET_TAG_ADD_ORDERS.set()
+        orders.get_orders()
+        keyboard = loyaut_keyboard_tags()
+        await message.answer('Выбирите тег', reply_markup=keyboard)
+    elif message.text == 'Нет':
+        await message.answer('Команда отменена!', reply_markup=types.ReplyKeyboardRemove())
+        await state.finish()
+
+
+@dp.message_handler(state=States.STATE_GET_TAG_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
+async def get_tag_add_orders(message: types.Message, state: FSMContext):
+    if message.text in orders.data_by_tags.keys():
+        keyboard = types.ReplyKeyboardMarkup(row_width=2)
+        for tag, order in orders.data_by_tags[message.text].items():
+            data = order['n']
+            keyboard.add(types.KeyboardButton(f'{tag}: {data}'))
+
+        keyboard.add(types.KeyboardButton('Назад <-'))
+        await state.update_data(tag_selected=message.text.casefold())
+        await message.answer('Выбирите нужную заявку.\n'
+                             'Для выбора другого тега нажмите "Назад <-".',
+                             reply_markup=keyboard)
+        await States.STATE_FINAL_ADD_ORDERS.set()
+    else:
+        await message.answer('Нет такого тега')
+
+
+@dp.message_handler(state=States.STATE_FINAL_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
+async def final_add_orders(message: types.Message, state: FSMContext):
+    user_id = message.from_user.id
+    df = pd.read_csv('user.csv', delimiter=',')
+    df_user_id = df['user_id'].tolist()
+    data = []
+    order_id = None
+    for _ in orders.orders_list.values():
+        data.append(_['n'])
+    if message.text[message.text.find(':') + 2:] in data:
+        try:
+            '''
+            orders.orders_for_route.update({int(message.text[:message.text.find(':')]):
+                                                message.text[message.text.find(':') + 2:]})
+            '''
+            id_orders = int(message.text[:message.text.find(':')])
+            data_orders = orders.orders_list[id_orders]
+            data_orders['f'] = 1
+            time_1 = int(time.time())
+            time_1 = time_1 - (time_1 % 86400) + time.altzone
+            data_orders['tf'] = time_1 + data_orders['tf']
+            data_orders['tt'] = time_1 + data_orders['tt']
+            # print(orders_list)
+
+            phone = df['phone_number'].tolist()
+            pointer_user_id = df_user_id.index(user_id)
+            phone = phone[pointer_user_id]
+            driver = orders.get_driver(str(phone))
+            print(driver)
+
+            spec = {
+                "itemsType": "avl_resource",
+                "propType": "propitemname",
+                "propName": "orders",
+                "propValueMask": '*',
+                "sortType": "orders"
+            }
+            params = {
+                "spec": spec,
+                "force": 1,
+                "flags": 524288,
+                "from": 0,
+                "to": 0
+            }
+            request = wialon_api.call('core_search_items', params)
+
+            orders_route = list()
+            for key, route in request['items'][0]['order_routes'].items():
+                if route['st']['u'] == driver and route['st']['s'] == 1:
+                    orders_route = route['ord']
+                    order_id = route['uid']
+                    print(route)
+
+                    print(orders_route)
+
+            if len(orders_route) != 0:
+                data.clear()
+                for key, order in request['items'][0]['orders'].items():
+                    if order['uid'] in orders_route:
+                        data.append(order)
+                data.append(data_orders)
+
+                gis = {
+                    "provider": 1,  # 0-нет, 1-gurtam, 2-google
+                    "addPoints": 1,  # 0-не возвращать трек, 1-вернуть трек
+                    "speed": 50  # скорость для оптимизации
+                }
+                params = {
+                    "itemId": orders.itemIds,
+                    "orders": data,
+                    "units": [driver],
+                    "warehouses": [],
+                    "criterions": {},
+                    "flags": 131,
+                    "gis": gis
+                }
+                print(params)
+                request = wialon_api.call('order_optimize', params)
+                print(request)
+
+            await message.answer(f'Заявка "{message.text}" добавлена в список для состовления маршрута')
+        except Exception as e:
+            await message.answer('Некоректная заявка')
 
 
 @dp.message_handler(content_types=types.ContentTypes.TEXT)
