@@ -137,13 +137,11 @@ class Orders(Wialon):
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']
             response = self.wialon_object.call('order_optimize', params)
-        print(response)
         self.get_orders()
         route_id = int(time.time())
         order_list = list()
         order_warehouse = orders_id
         order_warehouse.extend(warehouses)
-
         try:
             for keys, data in response.items():
                 if keys == 'details':
@@ -153,27 +151,13 @@ class Orders(Wialon):
                 elif keys == 'summary':
                     pass
                 else:
-                    zero_time = route_id % 86400
-                    zero_time = route_id - zero_time + time.altzone
-
                     i = 0
                     t_prev = data['orders'][0]['tm']
                     ml_prev = 0
-                    t_now = 0
-                    t = 0
                     vt = route_id % 86400
                     for _ in data['orders']:
                         data_orders = dict()
                         number = _['id']
-                        '''
-                        if i == 0:
-                            t_prev = _['tm']
-                            t_now = _['tm']
-                            t = 0
-                        else:
-                            t_now = _['tm']
-                            t = t_now - t_prev
-                        '''
                         if type(order_warehouse[number]) is int:
                             data_orders = self.orders[0]['orders'][f'{order_warehouse[number]}']
                             data_orders['f'] = 1
@@ -212,10 +196,6 @@ class Orders(Wialon):
                         data_orders['uid'] = 0
                         data_orders['id'] = 0
                         data_orders['st'] = 0
-                        time_modul = route_id % 86400
-                        time_modul = route_id - time_modul + time.altzone
-                        # data_orders['tt'] = time_modul + 86400
-                        # data_orders['tf'] = time_modul
                         data_orders['callMode'] = 'create'
                         order_list.append(data_orders)
                         i += 1
@@ -229,7 +209,6 @@ class Orders(Wialon):
             "callMode": 'create'
         }
         response = self.wialon_object.call('order_route_update', params)
-        print(params)
         return response
 
     def get_driver(self, phone_number: str):
