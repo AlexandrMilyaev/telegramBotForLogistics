@@ -4,9 +4,14 @@ from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 
 from wialon import Wialon, WialonError
-
-from telegram import States, comands_types, Orders
-
+try:
+    from telegram import States, comands_types, Orders
+except:
+    import os
+    import sys
+    dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
+    sys.path.insert(0, dir_path)
+    from telegram import States, comands_types, Orders
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
