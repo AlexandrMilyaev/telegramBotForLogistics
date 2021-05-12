@@ -1,4 +1,4 @@
-import states as states
+
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
@@ -312,32 +312,14 @@ async def cmd_add_orders(message: types.Message, state: FSMContext):
         pointer_user_id = df_user_id.index(user_id)
         phone = phone[pointer_user_id]
         driver = orders.get_driver(str(phone))
-        print(driver)
-
-        spec = {
-            "itemsType": "avl_resource",
-            "propType": "propitemname",
-            "propName": "orders",
-            "propValueMask": '*',
-            "sortType": "orders"
-        }
-        params = {
-            "spec": spec,
-            "force": 1,
-            "flags": 524288,
-            "from": 0,
-            "to": 0
-        }
-        request = wialon_api.call('core_search_items', params)
-
+        order_data = orders.get_orders()
         orders_route = list()
-        for key, route in request['items'][0]['order_routes'].items():
+        for key, route in order_data[0]['order_routes'].items():
             if route['st']['u'] == driver and route['st']['s'] == 1:
                 orders_route = route['ord']
-                print(orders_route)
         if len(orders_route) != 0:
             data = ''
-            for key, order in request['items'][0]['orders'].items():
+            for key, order in order_data[0]['orders'].items():
                 if order['uid'] in orders_route:
                     data += f"{order['n']}\n"
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
@@ -409,31 +391,16 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             pointer_user_id = df_user_id.index(user_id)
             phone = phone[pointer_user_id]
             driver = orders.get_driver(str(phone))
-            spec = {
-                "itemsType": "avl_resource",
-                "propType": "propitemname",
-                "propName": "orders",
-                "propValueMask": '*',
-                "sortType": "orders"
-            }
-            params = {
-                "spec": spec,
-                "force": 1,
-                "flags": 524288,
-                "from": 0,
-                "to": 0
-            }
-            request = wialon_api.call('core_search_items', params)
-
+            order_data = orders.orders
             orders_route = list()
             route_id = int()
-            for key, route in request['items'][0]['order_routes'].items():
+            for key, route in order_data[0]['order_routes'].items():
                 if route['st']['u'] == driver and route['st']['s'] == 1:
                     orders_route = route['ord']
                     route_id = route['uid']
             if len(orders_route) != 0:
                 data.clear()
-                for key, order in request['items'][0]['orders'].items():
+                for key, order in order_data[0]['orders'].items():
                     if order['uid'] in orders_route:
                         order['callMode'] = "update"
                         data.append(order)
@@ -454,15 +421,18 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     "addPoints": 1,  # 0-не возвращать трек, 1-вернуть трек
                     "speed": 50  # скорость для оптимизации
                 }
+                priority = ""
                 params = {
                     "itemId": orders.itemIds,
                     "orders": orders_for_route,
                     "units": [driver],
                     "warehouses": warehouses_for_route,
                     "criterions": {},
+                    "priority": {driver: {0: 0}},
                     "flags": 131,
                     "gis": gis
                 }
+
                 request = wialon_api.call('order_optimize', params)
                 order_warehouse = orders_for_route
                 order_warehouse.extend(warehouses_for_route)
@@ -480,8 +450,11 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         t_prev = data['orders'][0]['tm']
                         ml_prev = 0
                         data['orders'].pop(0)
+                        print(order_warehouse)
+                        print(data['orders'])
                         for _ in data['orders']:
                             number = _['id']
+                            print(number)
                             tm = _['tm'] - t_prev
                             ml = _['ml'] - ml_prev
                             vt = vt + tm
@@ -494,6 +467,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 "vt": vt,  # время посещения по плану, UNIX_TIME
                                 "ndt": 300  # время, за которое должно прийти уведомление, с
                             }
+                            if vt >= data_orders['tt']:
+                                data_orders['tt'] = vt + 3600
                             t_prev = _['tm']
                             ml_prev = _['ml']
                             data_orders['u'] = keys
@@ -518,6 +493,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             await state.finish()
             data.clear()
             data_orders.clear()
+            order_warehouse.clear()
         except Exception as e:
             await message.answer('Некоректная заявка')
 
