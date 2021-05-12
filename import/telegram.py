@@ -37,6 +37,7 @@ class Orders(Wialon):
     warehouse = dict()
     orders = None
     user_id = None
+    user_name = None
     itemIds = 22403020
     token = None
 
@@ -249,40 +250,3 @@ class Orders(Wialon):
                     return _['bu']
         return None
 
-
-'''
-        try:
-            spec = {
-                "itemsType": "avl_unit",
-                "propType": "property",
-                "propName": "sys_name",
-                "propValueMask": "*",
-                "sortType": "sys_name"
-            }
-            params = {
-                "spec": spec,
-                "force": 1,
-                "flags": 1,
-                "from": 0,
-                "to": 0
-            }
-            response = self.wialon_object.call('core_search_items', params)
-            return response
-        except WialonError as e:
-            spec = {
-                "itemsType": "avl_unit"
-            }
-            params = {
-                "spec": spec,
-                "force": 1,
-                "flags": 1,
-                "from": 0,
-                "to": 0
-            }
-            res = self.wialon_object.token_login(token=self.token)
-            self.wialon_object.sid = res['eid']
-            response = self.wialon_object.call('core_search_items', params)
-            print(e.args)
-            return response
-
-'''
