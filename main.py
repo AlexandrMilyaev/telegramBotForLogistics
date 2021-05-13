@@ -349,7 +349,6 @@ async def cmd_add_orders(message: types.Message, state: FSMContext):
                 orders.user_name = f'{df_first_name[pointer_user_id]} ' \
                                    f'{df_last_name[pointer_user_id]}'
             orders.user_id = message.from_user.id
-            orders.user_id = message.from_user.id
 
             order_data = orders.get_orders()
             orders_route = list()
@@ -373,6 +372,8 @@ async def cmd_add_orders(message: types.Message, state: FSMContext):
             else:
                 await message.answer('За вами не закреплен маршрут.\n'
                                      'Для создания маршрута воспользуйтесь командой /start_route')
+                orders.user_name = None
+                orders.user_id = None
         else:
             await message.answer('Мы не знакомы.\n'
                                  'Пройдите авторизацию, отправив команду /start')
