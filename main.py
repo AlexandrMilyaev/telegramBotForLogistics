@@ -52,7 +52,7 @@ with open('import/contacts.txt', 'r', encoding='utf-8') as g:
 
 @dp.message_handler(commands="start")
 async def cmd_test(message: types.Message):
-    if orders.user_id is not None:
+    if orders.user_id is None:
         inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
         inline_kb_full.add(types.KeyboardButton('Отправить свой контакт ☎️', request_contact=True))
         await States.STATE_GET_NUMBER.set()
