@@ -606,6 +606,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
         for _ in orders.orders_list.values():
             data.append(_['n'])
         if message.text[message.text.find(':') + 2:] in data:
+            data_orders = None
             try:
                 id_orders = int(message.text[:message.text.find(':')])
                 data_orders = orders.orders_list[id_orders]
@@ -631,7 +632,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     data.clear()
                     for key, order in order_data[0]['orders'].items():
                         if order['uid'] in orders_route:
-                            order['callMode'] = ""
+                            # order['callMode'] = ""
                             data.append(order)
                     data.sort(key=lambda dat: dat['p']['r']['vt'])
                     order_list = data
@@ -708,10 +709,13 @@ async def final_add_orders(message: types.Message, state: FSMContext):
 
                                 else:
                                     data_orders['callMode'] = 'update'
-                                    if data_orders['f'] == 264:
+                                    '''
+                                                                        if data_orders['f'] == 264:
                                         dp2 = list(data_orders['dp'])
                                         dp2.append(dp)
                                         data_orders['dp'] = dp2
+                                    '''
+
                                 data_orders['itemId'] = orders.itemIds
                                 order_list.append(data_orders)
                                 i += 1
@@ -721,16 +725,33 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         "routeId": route_id,
                         "callMode": "update"
                     }
-                    response = wialon_api.call('order_route_update', params)
-                await message.answer(f'Заявка "{message.text}" добавлена маршрут', reply_markup=types.ReplyKeyboardRemove())
+                    try:
+                        print(params)
+                        response = wialon_api.call('order_route_update', params)
+                        await message.answer(f'Заявка "{message.text}" добавлена маршрут',
+                                             reply_markup=types.ReplyKeyboardRemove())
+                        await state.finish()
+                        data.clear()
+                        data_orders.clear()
+                        orders.user_name = None
+                        orders.user_id = None
+                    except Exception as e:
+                        print(e.args)
+                        await message.answer(f'Ошибка: {e.args}',
+                                             reply_markup=types.ReplyKeyboardRemove())
+                        await state.finish()
+                        data.clear()
+                        data_orders.clear()
+                        orders.user_name = None
+                        orders.user_id = None
+
+            except Exception as e:
+                await message.answer(f'Ошибка:  {e.args}')
                 await state.finish()
                 data.clear()
                 data_orders.clear()
                 orders.user_name = None
                 orders.user_id = None
-            except Exception as e:
-                await message.answer(f'Ошибка:  {e.args}')
-
         elif message.text == 'Назад <-':
             keyboard = loyaut_keyboard_tags()
             await States.STATE_GET_TAG_ADD_ORDERS.set()

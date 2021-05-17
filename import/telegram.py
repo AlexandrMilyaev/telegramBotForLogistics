@@ -1,4 +1,4 @@
-from aiogram.utils.helper import Helper, HelperMode, ListItem
+
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
 import time
@@ -85,7 +85,6 @@ class Orders(Wialon):
             orders = self.wialon_object.call('core_search_items', params)
             self.orders = orders['items']
         finally:
-            tags_value = list()
             tags_key = dict(No_tags='')
             for el in self.orders:
                 orders = el['orders']
@@ -163,7 +162,8 @@ class Orders(Wialon):
                             data_orders['f'] = 1
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
-                        if ((route_id + ~time.altzone + 1) % 86400) >= _['tm']:
+                        # if ((route_id + ~time.altzone + 1) % 86400) >= _['tm']:
+                        if (route_id % 86400) >= _['tm']:
                             tm = _['tm'] - t_prev
                             ml = _['ml'] - ml_prev
                             vt = vt + tm
@@ -208,17 +208,19 @@ class Orders(Wialon):
             "routeId": route_id,
             "callMode": 'create'
         }
-        response = self.wialon_object.call('order_route_update', params)
+        try:
+            response = self.wialon_object.call('order_route_update', params)
+        except Exception as e:
+            print(e.args)
         return response
 
     def get_driver(self, phone_number: str):
-        '''
-
+        """
         :param phone_number: номер телефона , должен совпасть с номером водителя в Wialon
         :return: если номер телефона совпал возврашаем id назначеного обьекта
                 если обьект не назначен возвращаеться 0
                 если номер телефона не совпал возвращаем None
-        '''
+        """
         spec = {
             "itemsType": "avl_resource",
             "propType": "propitemname",
@@ -233,19 +235,18 @@ class Orders(Wialon):
             "from": 0,
             "to": 0
         }
+        response = None
         try:
             response = self.wialon_object.call('core_search_items', params)
-
-        except WialonError as e:
+        except WialonError:
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']
             response = self.wialon_object.call('core_search_items', params)
-
-        driver = response['items'][0]['drvrs']
-        for _ in driver.values():
-            if _['p'][-10:] != '':
-                number = _['p'][-10:]
-                if number == phone_number[-10:]:
-                    return _['bu']
+        finally:
+            driver = response['items'][0]['drvrs']
+            for _ in driver.values():
+                if _['p'][-10:] != '':
+                    number = _['p'][-10:]
+                    if number == phone_number[-10:]:
+                        return _['bu']
         return None
-
