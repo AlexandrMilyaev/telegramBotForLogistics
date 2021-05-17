@@ -300,24 +300,44 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
         user_id = message.from_user.id
         df = pd.read_csv('user.csv', delimiter=',')
         df_user_id = df['user_id'].tolist()
+        pointer_user_id = df_user_id.index(user_id)
+        phone = df['phone_number'].tolist()
+        phone = phone[pointer_user_id]
+        driver = orders.get_driver(str(phone))
+        df_first_name = df['first_name'].tolist()
+        df_last_name = df['last_name'].tolist()
         if user_id in df_user_id:
-            # заносим имя менеджера и его id в обьект
-            pointer_user_id = df_user_id.index(user_id)
-            df_first_name = df['first_name'].tolist()
-            df_last_name = df['last_name'].tolist()
-            if df_last_name[pointer_user_id] == 'nan':
-                orders.user_name = f'{df_first_name[pointer_user_id]} '
-            else:
-                orders.user_name = f'{df_first_name[pointer_user_id]} ' \
-                                   f'{df_last_name[pointer_user_id]}'
-            orders.user_id = message.from_user.id
+            # Проверяем, не привязан ли маршрут к водителю
 
-            orders.get_orders()
-            keyboard = loyaut_keyboard_tags()
-            await state.update_data(tags=orders.data_by_tags.keys())
-            await States.STATE_GET_TAG.set()
-            await message.answer('Выбирите тег', reply_markup=keyboard)
-            print(message.from_user.id)
+            order_data = orders.get_orders()
+            orders_route = list()
+            for key, route in order_data[0]['order_routes'].items():
+                if route['st']['u'] == driver and route['st']['s'] == 1:
+                    orders_route = route['ord']
+            if len(orders_route) != 0:
+                data = ''
+                for key, order in order_data[0]['orders'].items():
+                    if order['uid'] in orders_route:
+                        data += f"{order['n']}\n"
+
+                await message.answer(f'За вами уже закреплен маршрут с заявками:\n'
+                                     f'{data}'
+                                     f'Для добавления заявки в маршрут, воспользуйтесь командой /add_orders')
+            else:
+                # заносим имя менеджера и его id в обьект
+
+                if df_last_name[pointer_user_id] == 'nan':
+                    orders.user_name = f'{df_first_name[pointer_user_id]} '
+                else:
+                    orders.user_name = f'{df_first_name[pointer_user_id]} ' \
+                                       f'{df_last_name[pointer_user_id]}'
+                orders.user_id = message.from_user.id
+                orders.get_orders()
+                keyboard = loyaut_keyboard_tags()
+                await state.update_data(tags=orders.data_by_tags.keys())
+                await States.STATE_GET_TAG.set()
+                await message.answer('Выбирите тег', reply_markup=keyboard)
+                print(message.from_user.id)
         else:
             await message.answer('Мы не знакомы.\n'
                                  'Пройдите авторизацию, отправив команду /start')
@@ -398,6 +418,7 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
                 data_orders['f'] = 260
                 time_1 = int(time.time())
                 time_1 = time_1 - (time_1 % 86400) + time.altzone
+
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']
                 orders.warehouses_for_route.update({id_orders: data_orders})
@@ -434,6 +455,7 @@ async def final_warehouse(message: types.Message, state: FSMContext):
                 print(data_orders)
                 data_orders['f'] = 264
                 time_1 = int(time.time())
+                #time_1 = time_1 - (time_1 % 86400)
                 time_1 = time_1 - (time_1 % 86400) + time.altzone
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']

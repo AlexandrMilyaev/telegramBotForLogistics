@@ -153,7 +153,7 @@ class Orders(Wialon):
                     i = 0
                     t_prev = data['orders'][0]['tm']
                     ml_prev = 0
-                    vt = route_id % 86400
+                    vt = (route_id % 86400)
                     for _ in data['orders']:
                         data_orders = dict()
                         number = _['id']
@@ -162,8 +162,8 @@ class Orders(Wialon):
                             data_orders['f'] = 1
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
-                        # if ((route_id + ~time.altzone + 1) % 86400) >= _['tm']:
-                        if (route_id % 86400) >= _['tm']:
+                        if ((route_id + time.altzone) % 86400) >= _['tm']:
+                        #if (route_id % 86400) >= _['tm']:
                             tm = _['tm'] - t_prev
                             ml = _['ml'] - ml_prev
                             vt = vt + tm
