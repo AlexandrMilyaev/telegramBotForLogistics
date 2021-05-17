@@ -22,8 +22,11 @@ import pandas as pd
 
 def loyaut_keyboard_tags():
     inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
-
+    data = list()
     for keys in orders.data_by_tags.keys():
+        data.append(keys)
+    data.sort()
+    for keys in data:
         inline_kb_full.add(types.KeyboardButton('{}'.format(keys), callback_data='btn_tags{}'.format(keys)))
     return inline_kb_full
 
@@ -321,14 +324,17 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
     else:
         await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
+
 @dp.message_handler(state=States.STATE_GET_TAG, content_types=types.ContentTypes.TEXT)
 async def get_tag(message: types.Message, state: FSMContext):
     if message.from_user.id == orders.user_id:
         if message.text in orders.data_by_tags.keys():
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
             keyboard.add(types.KeyboardButton('Далее ->'))
-            for tag, order in orders.data_by_tags[message.text].items():
+            data_sort = sorted(orders.data_by_tags[message.text].values(), key = lambda sort: sort['n'])
+            for order in data_sort:
                 data = order['n']
+                tag = order['id']
                 keyboard.add(types.KeyboardButton(f'{tag}: {data}'))
 
             keyboard.add(types.KeyboardButton('Назад <-'))
@@ -459,36 +465,43 @@ async def final_warehouse(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
 async def create_route(message: types.Message, state: FSMContext):
-    if message.from_user.id == orders.user_id:
-        if message.text == 'Да':
-            df = pd.read_csv('user.csv', delimiter=',')
-            user_id = df['user_id'].tolist()
-            phone = df['phone_number'].tolist()
-            pointer_user_id = user_id.index(message.from_user.id)
-            phone = phone[pointer_user_id]
-            driver = orders.get_driver(str(phone))
+    try:
+        if message.from_user.id == orders.user_id:
+            if message.text == 'Да':
+                df = pd.read_csv('user.csv', delimiter=',')
+                user_id = df['user_id'].tolist()
+                phone = df['phone_number'].tolist()
+                pointer_user_id = user_id.index(message.from_user.id)
+                phone = phone[pointer_user_id]
+                driver = orders.get_driver(str(phone))
 
-            orders.craete_route(list(orders.orders_for_route.values()),
-                                list(orders.warehouses_for_route.values()),
-                                driver)
-            orders.orders_for_route.clear()
-            orders.warehouses_for_route.clear()
-            orders_list.clear()
-            await message.answer('Маршрут создан', reply_markup=types.ReplyKeyboardRemove())
-            await state.finish()
-            orders.user_name = None
-            orders.user_id = None
+                orders.craete_route(list(orders.orders_for_route.values()),
+                                    list(orders.warehouses_for_route.values()),
+                                    driver)
+                orders.orders_for_route.clear()
+                orders.warehouses_for_route.clear()
+                orders_list.clear()
+                await message.answer('Маршрут создан', reply_markup=types.ReplyKeyboardRemove())
+                await state.finish()
+                orders.user_name = None
+                orders.user_id = None
 
-        elif message.text == 'Нет':
-            orders.orders_for_route.clear()
-            orders_list.clear()
-            await message.answer('Отмена создания маршрута!', reply_markup=types.ReplyKeyboardRemove())
-            await state.finish()
-            orders.user_name = None
-            orders.user_id = None
-    else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
-
+            elif message.text == 'Нет':
+                orders.orders_for_route.clear()
+                orders_list.clear()
+                await message.answer('Отмена создания маршрута!', reply_markup=types.ReplyKeyboardRemove())
+                await state.finish()
+                orders.user_name = None
+                orders.user_id = None
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+    except Exception as e:
+        orders.orders_for_route.clear()
+        orders_list.clear()
+        await message.answer(f'Ошибка создания маршрута: {e.args}', reply_markup=types.ReplyKeyboardRemove())
+        await state.finish()
+        orders.user_name = None
+        orders.user_id = None
 
 @dp.message_handler(commands="add_orders")
 async def cmd_add_orders(message: types.Message, state: FSMContext):
@@ -565,10 +578,11 @@ async def get_tag_add_orders(message: types.Message, state: FSMContext):
     if message.from_user.id == orders.user_id:
         if message.text in orders.data_by_tags.keys():
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
-            for tag, order in orders.data_by_tags[message.text].items():
+            data_sort = sorted(orders.data_by_tags[message.text].values(), key=lambda sort: sort['n'])
+            for order in data_sort:
                 data = order['n']
+                tag = order['id']
                 keyboard.add(types.KeyboardButton(f'{tag}: {data}'))
-
             keyboard.add(types.KeyboardButton('Назад <-'))
             await state.update_data(tag_selected=message.text.casefold())
             await message.answer('Выбирите нужную заявку.\n'
@@ -617,6 +631,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     data.clear()
                     for key, order in order_data[0]['orders'].items():
                         if order['uid'] in orders_route:
+                            order['callMode'] = ""
                             data.append(order)
                     data.sort(key=lambda dat: dat['p']['r']['vt'])
                     order_list = data
