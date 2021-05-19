@@ -115,183 +115,7 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
-    global dp
-    if message.text == '/test':
-        user_id = message.from_user.id
-        df = pd.read_csv('user.csv', delimiter=',')
-        df_user_id = df['user_id'].tolist()
-        data = []
-        orders.get_orders()
-        for _ in orders.orders_list.values():
-            data.append(_['n'])
-        print(data)
-        if 'С Ангар' in data:
-            try:
-                id_orders = 376
-                data_orders = orders.orders_list[id_orders]
-                data_orders['f'] = 1
-                time_1 = int(time.time())
-                time_1 = time_1 - (time_1 % 86400) + time.altzone
-                data_orders['tf'] = time_1 + data_orders['tf']
-                data_orders['tt'] = time_1 + data_orders['tt']
-                data_orders['callMode'] = "create"
-                phone = df['phone_number'].tolist()
-                pointer_user_id = df_user_id.index(user_id)
-                phone = phone[pointer_user_id]
-                driver = orders.get_driver(str(phone))
-                order_data = orders.orders
-                orders_route = list()
-                route_id = int()
-                for key, route in order_data[0]['order_routes'].items():
-                    if route['st']['u'] == driver and route['st']['s'] == 1:
-                        orders_route = route['ord']
-                        route_id = route['uid']
-                        print(route)
-                if len(orders_route) != 0:
-                    data.clear()
-                    data2 = list()
-                    data_test = dict()
-
-                    for key, order in order_data[0]['orders'].items():
-                        if order['uid'] in orders_route:
-
-                            order['callMode'] = "update"
-                            #data_test['id'] = order['id']
-                            #data_test['callMode'] = "update"
-                            data.append(order)
-                    data.sort(key=lambda dat: dat['p']['r']['vt'])
-                    print(data)
-                    for _ in data:
-                        data_test.clear()
-                        data_test['id'] = _['id']
-                        print(_['id'])
-                        #data_test['callMode'] = "update"
-                        data2.append({'id': _['id']})
-                    print('test')
-                    print(data2)
-                    order_list = data2
-                    data_len = len(data) - 1
-                    orders_for_route = []
-                    warehouses_for_route = []
-                    if data[data_len]['f'] & 8:
-                        orders_for_route.append(data[data_len - 1])
-                        warehouses_for_route.append(data[data_len])
-                        order_list.pop()
-                    else:
-                        orders_for_route.append(data[data_len])
-                    print(order_list)
-                    orders_for_route.append(data_orders)
-                    gis = {
-                        "provider": 1,  # 0-нет, 1-gurtam, 2-google
-                        "addPoints": 1,  # 0-не возвращать трек, 1-вернуть трек
-                        "speed": 50  # скорость для оптимизации
-                    }
-                    params = {
-                        "itemId": orders.itemIds,
-                        "orders": orders_for_route,
-                        "units": [driver],
-                        "warehouses": warehouses_for_route,
-                        "criterions": {},
-                        "priority": {driver: {0: 0}},
-                        "flags": 131,
-                        "gis": gis
-                    }
-
-                    request = wialon_api.call('order_optimize', params)
-                    print('test')
-                    order_warehouse = orders_for_route
-                    order_warehouse.extend(warehouses_for_route)
-                    print(order_warehouse)
-                    vt = orders_for_route[0]['p']['r']['vt']
-                    i = orders_for_route[0]['p']['r']['i']
-                    i += 1
-                    order_list2 = list()
-                    for keys, data in request.items():
-                        if keys == 'details':
-                            pass
-                        elif keys == 'success':
-                            pass
-                        elif keys == 'summary':
-                            pass
-                        else:
-                            t_prev = data['orders'][0]['tm']
-                            ml_prev = 0
-                            data['orders'].pop(0)
-                            for _ in data['orders']:
-                                number = _['id']
-                                print(number)
-                                tm = _['tm'] - t_prev
-                                ml = _['ml'] - ml_prev
-                                vt = vt + tm
-                                data_orders = dict(order_warehouse[number])
-                                data_orders['p']['r'] = {
-                                    "id": route_id,  # id маршрута
-                                    "i": i,  # порядковый номер (0..)
-                                    "m": ml,  # пробег с предыдущей точки по плану, м
-                                    "t": tm,  # время с предыдущей точки по плану, сек
-                                    "vt": vt,  # время посещения по плану, UNIX_TIME
-                                    "ndt": 300  # время, за которое должно прийти уведомление, с
-                                }
-                                if vt >= data_orders['tt']:
-                                    data_orders['tt'] = vt + 3600
-                                t_prev = _['tm']
-                                ml_prev = _['ml']
-                                data_orders['u'] = keys
-                                data_orders['rp'] = _['p']
-
-                                if data_orders['f'] == 1:
-                                    data_orders['callMode'] = 'create'
-                                    data_orders['uid'] = 0
-                                    data_orders['id'] = 0
-                                    data_orders['st'] = 0
-                                    dp = data_orders['uid']
-
-                                else:
-                                    data_orders['callMode'] = 'update'
-                                    '''
-                                                                        if data_orders['f'] == 264:
-                                        print(data_orders['dp'])
-                                        dp2 = list(data_orders['dp'])
-                                        dp2.append(dp)
-                                        data_orders['dp'] = dp2
-                                        print(type(data_orders['dp']))
-                                    '''
-
-                                data_orders['itemId'] = orders.itemIds
-                                # data_orders['p'].pop("criterions")
-                                print(data_orders)
-                                print(type(data_orders))
-                                # req = wialon_api.call('svc_order_update', data_orders)
-                                # print(req)
-                                order_list.append(data_orders)
-                                order_list2.append(data_orders)
-                                i += 1
-                    params = {
-                        "itemId": orders.itemIds,
-                        "orders": order_list,
-                        "routeId": route_id,
-                        "callMode": "update"
-                    }
-                    print(params)
-                    response = wialon_api.call('order_route_update', params)
-                    print(params)
-                    print(response)
-                await message.answer(f'Заявка "{message.text}" добавлена маршрут',
-                                     reply_markup=types.ReplyKeyboardRemove())
-                data.clear()
-                data_orders.clear()
-                orders.user_name = None
-                orders.user_id = None
-            except Exception as e:
-                print(e.args)
-                await message.answer('Некоректная заявка')
-
-        elif message.text == 'Назад <-':
-            keyboard = loyaut_keyboard_tags()
-            await States.STATE_GET_TAG_ADD_ORDERS.set()
-            await message.answer('Выбирите тег', reply_markup=keyboard)
-    else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+    wialon_api.request()
 
 
 @dp.message_handler(commands="start_route")
@@ -387,7 +211,9 @@ async def get_order(message: types.Message, state: FSMContext):
                 data_orders = orders.orders_list[id_orders]
                 data_orders['f'] = 1
                 time_1 = int(time.time())
-                time_1 = time_1 - (time_1 % 86400) + time.altzone
+                #time_1 = time_1 - (time_1 % 86400) + time.altzone
+                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно отнять временную зону
+
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']
                 orders.orders_for_route.update({id_orders: data_orders})
@@ -417,8 +243,10 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
                 data_orders = orders.warehouse[id_orders]
                 data_orders['f'] = 260
                 time_1 = int(time.time())
-                time_1 = time_1 - (time_1 % 86400) + time.altzone
-
+                # time_1 = time_1 - (time_1 % 86400) + time.altzone
+                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
+                time_zone = int(data_orders['tz'])
+                print(time_zone)
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']
                 orders.warehouses_for_route.update({id_orders: data_orders})
@@ -456,7 +284,9 @@ async def final_warehouse(message: types.Message, state: FSMContext):
                 data_orders['f'] = 264
                 time_1 = int(time.time())
                 #time_1 = time_1 - (time_1 % 86400)
-                time_1 = time_1 - (time_1 % 86400) + time.altzone
+                # time_1 = time_1 - (time_1 % 86400) - time.altzone
+                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
+
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']
                 orders.warehouses_for_route.update({id_orders: data_orders})
@@ -634,7 +464,9 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                 data_orders = orders.orders_list[id_orders]
                 data_orders['f'] = 1
                 time_1 = int(time.time())
-                time_1 = time_1 - (time_1 % 86400) + time.altzone
+                #time_1 = time_1 - (time_1 % 86400) + time.altzone
+                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
+
                 data_orders['tf'] = time_1 + data_orders['tf']
                 data_orders['tt'] = time_1 + data_orders['tt']
                 data_orders['callMode'] = "create"

@@ -162,7 +162,8 @@ class Orders(Wialon):
                             data_orders['f'] = 1
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
-                        if ((route_id + time.altzone) % 86400) >= _['tm']:
+                        # if ((route_id + time.altzone) % 86400) >= _['tm']:
+                        if ((route_id + 10800) % 86400) >= _['tm']: # вместо 10800 нужно подставить временную зону
                         #if (route_id % 86400) >= _['tm']:
                             tm = _['tm'] - t_prev
                             ml = _['ml'] - ml_prev
