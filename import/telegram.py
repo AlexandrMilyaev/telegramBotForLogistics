@@ -39,6 +39,7 @@ class Orders(Wialon):
     user_name = None
     itemIds = 22403020
     token = None
+    save_time = int(time.time())
 
     def __init__(self, wialon_object, token,  **extra_params):
         super().__init__(**extra_params)

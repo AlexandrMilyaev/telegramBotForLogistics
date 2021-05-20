@@ -19,6 +19,10 @@ import time
 import logging
 import config
 import pandas as pd
+import requests
+
+delay = 180
+
 
 def loyaut_keyboard_tags():
     inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
@@ -115,7 +119,24 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
-    wialon_api.request()
+    orders.get_orders()
+    origin = {}
+    destination = {}
+    waypoints = []
+    uid = int()
+    sid = orders.sid
+    data = {
+        "origin": origin,
+        "destination": destination,
+        "waypoints": waypoints,
+        "flags": 1
+    }
+    peyload = {
+        "data": data,
+        "uid": uid,
+        "sid": sid
+    }
+    request = requests.post('http://hst-api.wialon.com/gis_get_route_via_waypoints', params=peyload)
 
 
 @dp.message_handler(commands="start_route")
@@ -162,11 +183,18 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
                 await States.STATE_GET_TAG.set()
                 await message.answer('Выбирите тег', reply_markup=keyboard)
                 print(message.from_user.id)
+                orders.save_time = int(time.time())
         else:
             await message.answer('Мы не знакомы.\n'
                                  'Пройдите авторизацию, отправив команду /start')
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_GET_TAG, content_types=types.ContentTypes.TEXT)
@@ -190,8 +218,15 @@ async def get_tag(message: types.Message, state: FSMContext):
             await States.STATE_GET_ORDERS.set()
         else:
             await message.answer('Нет такого тега')
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_GET_ORDERS, content_types=types.ContentTypes.TEXT)
@@ -230,8 +265,15 @@ async def get_order(message: types.Message, state: FSMContext):
                 house = warehouse['n']
                 keyboard.add(types.KeyboardButton(f'{key}: {house}'))
             await message.answer(f'Выберете начальный склад', reply_markup=keyboard)
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_INITIAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
@@ -269,8 +311,15 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
                 house = warehouse['n']
                 keyboard.add(types.KeyboardButton(f'{key}: {house}'))
             await message.answer(f'Выберете конечный склад', reply_markup=keyboard)
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_FINAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
@@ -311,8 +360,15 @@ async def final_warehouse(message: types.Message, state: FSMContext):
             for _ in orders_list:
                 data += _ + '\n'
             await message.answer(f'Создать маршрут согласно следуещего списка заявок?:\n{data}', reply_markup=keyboard)
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
@@ -404,8 +460,15 @@ async def cmd_add_orders(message: types.Message, state: FSMContext):
         else:
             await message.answer('Мы не знакомы.\n'
                                  'Пройдите авторизацию, отправив команду /start')
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_INITIAL_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
@@ -421,8 +484,15 @@ async def initial_add_orders(message: types.Message, state: FSMContext):
             await state.finish()
             orders.user_name = None
             orders.user_id = None
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_GET_TAG_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
@@ -443,8 +513,15 @@ async def get_tag_add_orders(message: types.Message, state: FSMContext):
             await States.STATE_FINAL_ADD_ORDERS.set()
         else:
             await message.answer('Нет такого тега')
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_FINAL_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
@@ -536,6 +613,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                             for _ in data['orders']:
                                 number = _['id']
                                 tm = _['tm'] - t_prev
+                                print(t_prev)
+                                print(tm)
                                 ml = _['ml'] - ml_prev
                                 vt = vt + tm
                                 data_orders = dict(order_warehouse[number])
@@ -573,6 +652,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 data_orders['itemId'] = orders.itemIds
                                 order_list.append(data_orders)
                                 i += 1
+
                     params = {
                         "itemId": orders.itemIds,
                         "orders": order_list,
@@ -582,6 +662,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     try:
                         print(params)
                         response = wialon_api.call('order_route_update', params)
+                        print()
                         await message.answer(f'Заявка "{message.text}" добавлена маршрут',
                                              reply_markup=types.ReplyKeyboardRemove())
                         await state.finish()
@@ -610,8 +691,15 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             keyboard = loyaut_keyboard_tags()
             await States.STATE_GET_TAG_ADD_ORDERS.set()
             await message.answer('Выбирите тег', reply_markup=keyboard)
+        orders.save_time = int(time.time())
     else:
-        await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(content_types=types.ContentTypes.TEXT)
