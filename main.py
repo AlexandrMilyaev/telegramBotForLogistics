@@ -119,11 +119,12 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
+
     orders.get_orders()
     origin = {}
     destination = {}
     waypoints = []
-    uid = int()
+    uid = orders.itemIds
     sid = orders.sid
     data = {
         "origin": origin,
@@ -137,6 +138,8 @@ async def cmd_test(message: types.Message):
         "sid": sid
     }
     request = requests.post('http://hst-api.wialon.com/gis_get_route_via_waypoints', params=peyload)
+    print(request.text)
+
 
 
 @dp.message_handler(commands="start_route")
@@ -243,14 +246,7 @@ async def get_order(message: types.Message, state: FSMContext):
         elif message.text[message.text.find(':') + 2:] in data:
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.orders_list[id_orders]
-                data_orders['f'] = 1
-                time_1 = int(time.time())
-                #time_1 = time_1 - (time_1 % 86400) + time.altzone
-                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно отнять временную зону
-
-                data_orders['tf'] = time_1 + data_orders['tf']
-                data_orders['tt'] = time_1 + data_orders['tt']
+                data_orders = orders.copy_order(id_orders, 1)
                 orders.orders_for_route.update({id_orders: data_orders})
                 orders_list.append(message.text)
                 await message.answer(f'Заявка "{message.text}" добавлена в список для состовления маршрута')
@@ -282,15 +278,7 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
         if message.text != 'Без склада':
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.warehouse[id_orders]
-                data_orders['f'] = 260
-                time_1 = int(time.time())
-                # time_1 = time_1 - (time_1 % 86400) + time.altzone
-                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
-                time_zone = int(data_orders['tz'])
-                print(time_zone)
-                data_orders['tf'] = time_1 + data_orders['tf']
-                data_orders['tt'] = time_1 + data_orders['tt']
+                data_orders = orders.copy_order(id_orders, 260)
                 orders.warehouses_for_route.update({id_orders: data_orders})
                 orders_list.insert(0, message.text)
                 await message.answer(f'Начальный склад "{message.text}" добавлен в список для состовления маршрута')
@@ -328,16 +316,7 @@ async def final_warehouse(message: types.Message, state: FSMContext):
         if message.text != 'Без склада':
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.warehouse[id_orders]
-                print(data_orders)
-                data_orders['f'] = 264
-                time_1 = int(time.time())
-                #time_1 = time_1 - (time_1 % 86400)
-                # time_1 = time_1 - (time_1 % 86400) - time.altzone
-                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
-
-                data_orders['tf'] = time_1 + data_orders['tf']
-                data_orders['tt'] = time_1 + data_orders['tt']
+                data_orders = orders.copy_order(id_orders, 264)
                 orders.warehouses_for_route.update({id_orders: data_orders})
                 orders_list.append(message.text)
                 await message.answer(f'Конечный склад "{message.text}" добавлен в список для состовления маршрута')
@@ -538,14 +517,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             data_orders = None
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.orders_list[id_orders]
-                data_orders['f'] = 1
-                time_1 = int(time.time())
-                #time_1 = time_1 - (time_1 % 86400) + time.altzone
-                time_1 = time_1 - (time_1 % 86400) - 10800 # вместо 10800 нужно подставить временную зону
-
-                data_orders['tf'] = time_1 + data_orders['tf']
-                data_orders['tt'] = time_1 + data_orders['tt']
+                data_orders = orders.copy_order(id_orders, 1)
                 data_orders['callMode'] = "create"
                 phone = df['phone_number'].tolist()
                 pointer_user_id = df_user_id.index(user_id)
@@ -565,6 +537,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         if order['uid'] in orders_route:
                             # order['callMode'] = ""
                             data.append(order)
+                            print(order)
                     data.sort(key=lambda dat: dat['p']['r']['vt'])
                     order_list = data
                     data_len = len(data) - 1
@@ -649,7 +622,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                         data_orders['dp'] = dp2
                                     '''
 
-                                data_orders['itemId'] = orders.itemIds
+                                # data_orders['itemId'] = orders.itemIds
                                 order_list.append(data_orders)
                                 i += 1
 

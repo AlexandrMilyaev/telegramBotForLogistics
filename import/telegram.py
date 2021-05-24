@@ -110,7 +110,7 @@ class Orders(Wialon):
                                     self.orders_list.update({name['id']: name})
                     elif name['f'] & 4 and name['p']['r'] is None:
                         self.warehouse.update({name['id']: name})
-                        print(name)
+
 
         self.data_by_tags = tags_key
         return self.orders
@@ -215,6 +215,26 @@ class Orders(Wialon):
         except Exception as e:
             print(e.args)
         return response
+
+    def copy_order(self, id: int, flags: int) -> dict:
+        '''
+        Функция возвращает копию заявки по id
+        :param id: id заявки в Logistics
+        :param flags: флаг заявки
+        :return: словарь з параметрами заявки
+        '''
+        data_orders = None
+        try:
+            data_orders = self.orders_list[id]
+        except:
+            data_orders = self.warehouse[id]
+        finally:
+            data_orders['f'] = flags
+            time_1 = int(time.time())
+            time_1 = time_1 - (time_1 % 86400) - 10800  # вместо 10800 нужно подставить временную зону
+            data_orders['tf'] = time_1 + data_orders['tf']
+            data_orders['tt'] = time_1 + data_orders['tt']
+            return data_orders
 
     def get_driver(self, phone_number: str):
         """
