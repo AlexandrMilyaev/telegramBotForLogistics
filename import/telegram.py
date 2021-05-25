@@ -1,7 +1,7 @@
 
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
-import time
+import time, datetime
 
 comands_types = {
     "/start": "Процедура авторизации",
@@ -25,6 +25,34 @@ class States(StatesGroup):
     STATE_GET_TAG_ADD_ORDERS = State()
     STARE_GET_ORDERS_ADD_ORDERS = State()
     STATE_FINAL_ADD_ORDERS = State()
+
+
+def exp_calc(order: list, time_value: str, ceratain=True):
+    '''
+    Функция для расчета времени до автозавершения маршрута.
+    Нужно подставлять в параметр "exp" присоздании/редактировании маршрута
+    :param order: список заявок
+    :param time: строка в виде "hh:mm"
+    :param ceratain: если True, то возвращаеться время от последней заявки до значения time.
+    Если False, то возвращаеться значение time в секундах
+    :return: Количество секунд.
+    '''
+    data = time.strptime(time_value, "%H:%M")
+    data = datetime.timedelta(hours=data.tm_hour, minutes=data.tm_min).seconds
+    if ceratain is True:
+        max_vt = 0
+        for el in order:
+            max_vt = max(max_vt, el['p']['r']['vt'])
+        exp = int(time.time())
+        exp -= exp % 86400
+        exp += data
+        if max_vt < exp:
+            return exp - max_vt
+        else:
+            return max_vt
+    else:
+        return data
+
 
 
 class Orders(Wialon):

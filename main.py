@@ -4,7 +4,7 @@ from aiogram.utils import executor
 from wialon import Wialon, WialonError
 
 try:
-    from telegram import States, comands_types, Orders
+    from telegram import States, comands_types, Orders, exp_calc
 except:
     import os
     import sys
@@ -535,7 +535,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     data.clear()
                     for key, order in order_data[0]['orders'].items():
                         if order['uid'] in orders_route:
-                            # order['callMode'] = ""
+                            # order['callMode'] = ''
+                            print(order)
                             data.append(order)
                             print(order)
                     data.sort(key=lambda dat: dat['p']['r']['vt'])
@@ -615,6 +616,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
 
                                 else:
                                     data_orders['callMode'] = 'update'
+                                    #data_orders['p']['r']['vt'] -= _['tm']
                                     '''
                                                                         if data_orders['f'] == 264:
                                         dp2 = list(data_orders['dp'])
@@ -626,10 +628,12 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 order_list.append(data_orders)
                                 i += 1
 
+                    exp = exp_calc(order_list, "23:59")
                     params = {
                         "itemId": orders.itemIds,
                         "orders": order_list,
                         "routeId": route_id,
+                        "exp": exp,  # здесь указываем, через сколько закрываем маршрут
                         "callMode": "update"
                     }
                     try:
