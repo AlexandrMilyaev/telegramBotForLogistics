@@ -231,11 +231,12 @@ class Orders(Wialon):
                         i += 1
         except WialonError as e:
             print(e.args)
-
+        exp = exp_calc(order_list, "23:59")
         params = {
             "itemId": self.itemIds,
             "orders": order_list,
             "routeId": route_id,
+            "exp": exp,
             "callMode": 'create'
         }
         try:
