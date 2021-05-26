@@ -10,7 +10,7 @@ except:
     import sys
     dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
     sys.path.insert(0, dir_path)
-    from telegram import States, comands_types, Orders
+    from telegram import States, comands_types, Orders, exp_calc
 
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -629,6 +629,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 i += 1
 
                     exp = exp_calc(order_list, "23:59")
+                    print(exp)
                     params = {
                         "itemId": orders.itemIds,
                         "orders": order_list,
