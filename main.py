@@ -80,7 +80,7 @@ async def get_number(message: types.Message, state: FSMContext):
     df = pd.read_csv('user.csv', delimiter=',')
     phone = df['phone_number'].tolist()
     try:
-        print(phone.index(int(dict(message.contact)['phone_number'])))
+
         await message.answer('Ваш номер уже присутствует в списке авторизированиых номеров.\n'
                              'Отправьте команду /help для получения информации'
                              ' по доступным командам.'
@@ -422,8 +422,6 @@ async def create_route(message: types.Message, state: FSMContext):
                 pointer_user_id = user_id.index(message.from_user.id)
                 phone = phone[pointer_user_id]
                 driver = orders.get_driver(str(phone))
-                print(orders.orders_for_route.values())
-                print(orders.warehouses_for_route.values())
                 orders.craete_route(list(orders.orders_for_route.values()),
                                     list(orders.warehouses_for_route.values()),
                                     driver)
@@ -595,15 +593,12 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                     if route['st']['u'] == driver and route['st']['s'] == 1:
                         orders_route = route['ord']
                         route_id = route['uid']
-                        print(route)
                 if len(orders_route) != 0:
                     data.clear()
                     for key, order in order_data[0]['orders'].items():
                         if order['uid'] in orders_route:
                             # order['callMode'] = ''
-                            print(order)
                             data.append(order)
-                            print(order)
                     data.sort(key=lambda dat: dat['p']['r']['vt'])
                     order_list = data
                     data_len = len(data) - 1
@@ -652,8 +647,6 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                             for _ in data['orders']:
                                 number = _['id']
                                 tm = _['tm'] - t_prev
-                                print(t_prev)
-                                print(tm)
                                 ml = _['ml'] - ml_prev
                                 vt = vt + tm
                                 data_orders = dict(order_warehouse[number])
@@ -694,7 +687,6 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 i += 1
 
                     exp = exp_calc(order_list, "23:59")
-                    print(exp)
                     params = {
                         "itemId": orders.itemIds,
                         "orders": order_list,
@@ -713,7 +705,6 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         orders.user_name = None
                         orders.user_id = None
                     except Exception as e:
-                        print(e.args)
                         await message.answer(f'Ошибка: {e.args}',
                                              reply_markup=types.ReplyKeyboardRemove())
                         log.info(f'Ошибка: {e.args}')

@@ -77,7 +77,6 @@ class Orders(Wialon):
         super().__init__(**extra_params)
         self.wialon_object = wialon_object
         self.token = token
-        print(self.token)
         self.itemIds = self.get_resource_for_orders()
 
     def get_orders(self):
@@ -99,7 +98,6 @@ class Orders(Wialon):
             orders = self.wialon_object.call('core_search_items', params)
             self.orders = orders['items']
         except Exception as e:
-            print(e.args)
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']
             spec = {
@@ -164,8 +162,8 @@ class Orders(Wialon):
         }
         try:
             response = self.wialon_object.call('order_optimize', params)
+
         except WialonError as e:
-            print(e.args)
             res = self.wialon_object.token_login(token=self.token)
             self.wialon_object.sid = res['eid']
             response = self.wialon_object.call('order_optimize', params)
@@ -235,7 +233,6 @@ class Orders(Wialon):
                         i += 1
         except WialonError as e:
             log.info(f'Ошибка: {e.args}')
-            print(e.args)
         exp = exp_calc(order_list, "23:59")
         params = {
             "itemId": self.itemIds,
@@ -248,7 +245,6 @@ class Orders(Wialon):
             response = self.wialon_object.call('order_route_update', params)
         except Exception as e:
             log.info(f'Ошибка: {e.args}')
-            print(e.args)
         return response
 
     def copy_order(self, id: int, flags: int) -> dict:
@@ -309,6 +305,9 @@ class Orders(Wialon):
         return None
 
     def get_resource_for_orders(self):
+        '''
+        :return: функция возвращает id ресурса, в котором нужно создать заявки
+        '''
         spec = {
             "itemsType": "avl_resource",
             "propType": "property",
@@ -324,7 +323,6 @@ class Orders(Wialon):
             "to": 0
         }
         data = self.wialon_object.call('core_search_items', params)
-        print(data)
         for el in data['items']:
             if el['uacl'] & 0x600000000:  # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
                 return el['id']
