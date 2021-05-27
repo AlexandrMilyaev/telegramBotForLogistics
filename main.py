@@ -2,11 +2,10 @@ from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from wialon import Wialon, WialonError
-
+import os
 try:
     from telegram import States, comands_types, Orders, exp_calc
 except:
-    import os
     import sys
     dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
     sys.path.insert(0, dir_path)
@@ -20,6 +19,7 @@ import logging
 import config
 import pandas as pd
 import requests
+
 
 delay = 180
 
@@ -44,7 +44,10 @@ wialon_api = Wialon()
 result = wialon_api.token_login(token=config.logistics_token)
 wialon_api.sid = result['eid']
 orders = Orders(wialon_object=wialon_api, token=config.logistics_token, itemId=22403020)
-logging.basicConfig(level=logging.INFO)
+format_log = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+logging.basicConfig(filename="logFile.log", level=logging.INFO, format=format_log)
+log = logging.getLogger(os.path.basename(__file__))
+log.info("Start program")
 orders_list = list()
 df = pd.DataFrame({
     'phone_number',
@@ -53,12 +56,13 @@ df = pd.DataFrame({
     'user_id'
 })
 
-with open('import/contacts.txt', 'r', encoding='utf-8') as g:
-    pass
+
 
 
 @dp.message_handler(commands="start")
 async def cmd_test(message: types.Message):
+    log.info(f"(command /start) message: {message.text}, user_id: {message.from_user.id}")
+
     if orders.user_id is None:
         inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
         inline_kb_full.add(types.KeyboardButton('Отправить свой контакт ☎️', request_contact=True))
@@ -70,6 +74,9 @@ async def cmd_test(message: types.Message):
 
 @dp.message_handler(state=States.STATE_GET_NUMBER, content_types=types.ContentTypes.CONTACT)
 async def get_number(message: types.Message, state: FSMContext):
+    log.info(f"(command /start.STATE_GET_NUMBER) message: {message.contact},"
+             f" user_id: {message.from_user.id}({message.from_user.username})")
+
     df = pd.read_csv('user.csv', delimiter=',')
     phone = df['phone_number'].tolist()
     try:
@@ -78,9 +85,12 @@ async def get_number(message: types.Message, state: FSMContext):
                              'Отправьте команду /help для получения информации'
                              ' по доступным командам.'
                              , reply_markup=types.ReplyKeyboardRemove())
+        log.info(f"(command /start.STATE_GET_NUMBER): Номер уже авторизирован")
     except ValueError:
         driver = orders.get_driver(dict(message.contact)['phone_number'])
+        log.info(f"(command /start.STATE_GET_NUMBER): get_driver: {driver}")
         if driver is None:
+            log.info(f"(command /start.STATE_GET_NUMBER): Номер отсутствует в списке разрешенных номеров")
             await message.answer('Извените, вы отсутствуете в списке разрешонных пользователей',
                                  reply_markup=types.ReplyKeyboardRemove())
         else:
@@ -92,14 +102,17 @@ async def get_number(message: types.Message, state: FSMContext):
                                      ' но за вами не закреплен автомобиль.\n'
                                      ' Обратитесь к диспетчеру для назначения на автомобиль.'
                                      , reply_markup=types.ReplyKeyboardRemove())
+                log.info(f"(command /start.STATE_GET_NUMBER): Авторизация успешна, но не привязан автомобиль")
             else:
                 await message.answer('Авторизация прошла успешно.\n'
                                      'Отпраьте команду /help для получения информации'
                                      ' по доступным командам.'
                                      , reply_markup=types.ReplyKeyboardRemove())
+                log.info(f"(command /start.STATE_GET_NUMBER): авторизация успешна")
     finally:
         phone.clear()
         await state.finish()
+        log.info(f"(command /start.STATE_GET_NUMBER): Выход")
 
 
 @dp.message_handler(commands="help")
@@ -119,7 +132,31 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
+    df = pd.read_csv('user.csv', delimiter=',')
+    user_id = df['user_id'].tolist()
+    phone = df['phone_number'].tolist()
+    pointer_user_id = user_id.index(message.from_user.id)
+    phone = phone[pointer_user_id]
+    driver = orders.get_driver(str(phone))
+    print(driver)
 
+    spec = {
+        "itemsType": "avl_resource",
+        "propType": "property",
+        "propName": "sys_id",
+        "propValueMask": '*',
+        "sortType": "sys_id"
+    }
+    params = {
+        "spec": spec,
+        "force": 1,
+        "flags": 1,
+        "from": 0,
+        "to": 0
+    }
+    data = wialon_api.call('core_search_items', params)
+    print(data)
+'''
     orders.get_orders()
     origin = {}
     destination = {}
@@ -141,9 +178,16 @@ async def cmd_test(message: types.Message):
     print(request.text)
 
 
+'''
+
+
+
+
 
 @dp.message_handler(commands="start_route")
 async def cmd_start_route(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     if orders.user_id is None:
         user_id = message.from_user.id
         df = pd.read_csv('user.csv', delimiter=',')
@@ -162,6 +206,7 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
             for key, route in order_data[0]['order_routes'].items():
                 if route['st']['u'] == driver and route['st']['s'] == 1:
                     orders_route = route['ord']
+            log.info(f'orders_route: {orders_route}')
             if len(orders_route) != 0:
                 data = ''
                 for key, order in order_data[0]['orders'].items():
@@ -171,6 +216,7 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
                 await message.answer(f'За вами уже закреплен маршрут с заявками:\n'
                                      f'{data}'
                                      f'Для добавления заявки в маршрут, воспользуйтесь командой /add_orders')
+                log.info('answer: За вами уже закреплен маршрут')
             else:
                 # заносим имя менеджера и его id в обьект
 
@@ -185,7 +231,6 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
                 await state.update_data(tags=orders.data_by_tags.keys())
                 await States.STATE_GET_TAG.set()
                 await message.answer('Выбирите тег', reply_markup=keyboard)
-                print(message.from_user.id)
                 orders.save_time = int(time.time())
         else:
             await message.answer('Мы не знакомы.\n'
@@ -196,12 +241,16 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
+            log.info(f'Выход')
         else:
             await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+            log.info(f'Я заблокирован пользователем {orders.user_name}')
 
 
 @dp.message_handler(state=States.STATE_GET_TAG, content_types=types.ContentTypes.TEXT)
 async def get_tag(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route.STATE_GET_TAG): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     if message.from_user.id == orders.user_id:
         if message.text in orders.data_by_tags.keys():
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
@@ -234,6 +283,8 @@ async def get_tag(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_GET_ORDERS, content_types=types.ContentTypes.TEXT)
 async def get_order(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route.STATE_GET_ORDERS): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     if message.from_user.id == orders.user_id:
         data = []
         for _ in orders.orders_list.values():
@@ -274,6 +325,8 @@ async def get_order(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_INITIAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
 async def initial_warehouse(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route.STATE_INTIAL_WAREHOUSE): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     if message.from_user.id == orders.user_id:
         if message.text != 'Без склада':
             try:
@@ -312,6 +365,8 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_FINAL_WAREHOUSE, content_types=types.ContentTypes.TEXT)
 async def final_warehouse(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route.STATE_FINAL_WAREHOUSE): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     if message.from_user.id == orders.user_id:
         if message.text != 'Без склада':
             try:
@@ -352,6 +407,8 @@ async def final_warehouse(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_CREATE_ROUTS, content_types=types.ContentTypes.TEXT)
 async def create_route(message: types.Message, state: FSMContext):
+    log.info(f"(command /start_route.STATE_CRAETE_ROUTS): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
     try:
         if message.from_user.id == orders.user_id:
             if message.text == 'Да':
@@ -361,7 +418,8 @@ async def create_route(message: types.Message, state: FSMContext):
                 pointer_user_id = user_id.index(message.from_user.id)
                 phone = phone[pointer_user_id]
                 driver = orders.get_driver(str(phone))
-
+                print(orders.orders_for_route.values())
+                print(orders.warehouses_for_route.values())
                 orders.craete_route(list(orders.orders_for_route.values()),
                                     list(orders.warehouses_for_route.values()),
                                     driver)
@@ -383,6 +441,9 @@ async def create_route(message: types.Message, state: FSMContext):
         else:
             await message.answer(f'Я заблокирован пользователем {orders.user_name}')
     except Exception as e:
+        log.info(f'Ошибка: {e.args}')
+        log.info(f'orders: {list(orders.orders_for_route.values())}')
+        log.info(f'warehouse: {list(orders.warehouses_for_route.values())}')
         orders.orders_for_route.clear()
         orders_list.clear()
         await message.answer(f'Ошибка создания маршрута: {e.args}', reply_markup=types.ReplyKeyboardRemove())

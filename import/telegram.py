@@ -1,7 +1,14 @@
 
+import datetime
+import logging
+import time
+
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
-import time, datetime
+import os
+log = logging.getLogger(os.path.basename(__file__))
+
+
 
 comands_types = {
     "/start": "Процедура авторизации",
@@ -230,6 +237,7 @@ class Orders(Wialon):
                         order_list.append(data_orders)
                         i += 1
         except WialonError as e:
+            log.info(f'Ошибка: {e.args}')
             print(e.args)
         exp = exp_calc(order_list, "23:59")
         params = {
@@ -242,6 +250,7 @@ class Orders(Wialon):
         try:
             response = self.wialon_object.call('order_route_update', params)
         except Exception as e:
+            log.info(f'Ошибка: {e.args}')
             print(e.args)
         return response
 
