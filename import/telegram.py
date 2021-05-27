@@ -1,4 +1,3 @@
-
 import datetime
 import logging
 import time
@@ -6,9 +5,8 @@ import time
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
 import os
+
 log = logging.getLogger(os.path.basename(__file__))
-
-
 
 comands_types = {
     "/start": "Процедура авторизации",
@@ -61,7 +59,6 @@ def exp_calc(order: list, time_value: str, ceratain=True):
         return data
 
 
-
 class Orders(Wialon):
     orders_for_route = dict()
     warehouses_for_route = dict()
@@ -72,15 +69,16 @@ class Orders(Wialon):
     orders = None
     user_id = None
     user_name = None
-    itemIds = 22403020
+    itemIds = None
     token = None
     save_time = int(time.time())
 
-    def __init__(self, wialon_object, token,  **extra_params):
+    def __init__(self, wialon_object, token, **extra_params):
         super().__init__(**extra_params)
         self.wialon_object = wialon_object
         self.token = token
         print(self.token)
+        self.itemIds = self.get_resource_for_orders()
 
     def get_orders(self):
         try:
@@ -146,7 +144,6 @@ class Orders(Wialon):
                     elif name['f'] & 4 and name['p']['r'] is None:
                         self.warehouse.update({name['id']: name})
 
-
         self.data_by_tags = tags_key
         return self.orders
 
@@ -199,8 +196,8 @@ class Orders(Wialon):
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
                         # if ((route_id + time.altzone) % 86400) >= _['tm']:
-                        if ((route_id + 10800) % 86400) >= _['tm']: # вместо 10800 нужно подставить временную зону
-                        #if (route_id % 86400) >= _['tm']:
+                        if ((route_id + 10800) % 86400) >= _['tm']:  # вместо 10800 нужно подставить временную зону
+                            # if (route_id % 86400) >= _['tm']:
                             tm = _['tm'] - t_prev
                             ml = _['ml'] - ml_prev
                             vt = vt + tm
@@ -309,4 +306,26 @@ class Orders(Wialon):
                     number = _['p'][-10:]
                     if number == phone_number[-10:]:
                         return _['bu']
+        return None
+
+    def get_resource_for_orders(self):
+        spec = {
+            "itemsType": "avl_resource",
+            "propType": "property",
+            "propName": "sys_id",
+            "propValueMask": '*',
+            "sortType": "sys_id"
+        }
+        params = {
+            "spec": spec,
+            "force": 1,
+            "flags": 1,
+            "from": 0,
+            "to": 0
+        }
+        data = self.wialon_object.call('core_search_items', params)
+        print(data)
+        for el in data['items']:
+            if el['uacl'] & 0x600000000:  # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
+                return el['id']
         return None

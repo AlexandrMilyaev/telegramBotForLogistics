@@ -156,7 +156,11 @@ async def cmd_test(message: types.Message):
     }
     data = wialon_api.call('core_search_items', params)
     print(data)
-'''
+    for el in data['items']:
+        if el['uacl'] & 0x600000000: # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
+            return print(el['id'])
+    return print(None)
+'''         
     orders.get_orders()
     origin = {}
     destination = {}
@@ -699,9 +703,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         "callMode": "update"
                     }
                     try:
-                        print(params)
+
                         response = wialon_api.call('order_route_update', params)
-                        print()
                         await message.answer(f'Заявка "{message.text}" добавлена маршрут',
                                              reply_markup=types.ReplyKeyboardRemove())
                         await state.finish()
@@ -713,6 +716,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         print(e.args)
                         await message.answer(f'Ошибка: {e.args}',
                                              reply_markup=types.ReplyKeyboardRemove())
+                        log.info(f'Ошибка: {e.args}')
+                        log.info(f'Params: {params}')
                         await state.finish()
                         data.clear()
                         data_orders.clear()
