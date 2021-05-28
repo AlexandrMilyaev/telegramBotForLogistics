@@ -21,7 +21,7 @@ import logging
 import config
 import pandas as pd
 import requests
-
+print('Telegram activate!')
 
 delay = 180
 
@@ -236,7 +236,7 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
                 keyboard = loyaut_keyboard_tags()
                 await state.update_data(tags=orders.data_by_tags.keys())
                 await States.STATE_GET_TAG.set()
-                await message.answer('Выбирите тег', reply_markup=keyboard)
+                await message.answer('Выбирите тег или название заявки', reply_markup=keyboard)
                 orders.save_time = int(time.time())
         else:
             await message.answer('Мы не знакомы.\n'
@@ -258,9 +258,9 @@ async def get_tag(message: types.Message, state: FSMContext):
     log.info(f"(command /start_route.STATE_GET_TAG): message: {message.text},"
              f" user_id: {message.from_user.id} ({message.from_user.username})")
     if message.from_user.id == orders.user_id:
+        keyboard = types.ReplyKeyboardMarkup(row_width=2)
+        keyboard.add(types.KeyboardButton('Далее ->'))
         if message.text in orders.data_by_tags.keys():
-            keyboard = types.ReplyKeyboardMarkup(row_width=2)
-            keyboard.add(types.KeyboardButton('Далее ->'))
             data_sort = sorted(orders.data_by_tags[message.text].values(), key = lambda sort: sort['n'])
             for order in data_sort:
                 data = order['n']
@@ -275,7 +275,30 @@ async def get_tag(message: types.Message, state: FSMContext):
                                  reply_markup=keyboard)
             await States.STATE_GET_ORDERS.set()
         else:
-            await message.answer('Нет такого тега')
+            data = list()
+            for order in orders.orders_list.values():
+                name = order['n'].lower()
+
+
+                print(name)
+                if name.find(message.text.lower()) != -1:
+                    data.append(order)
+            if len(data) == 0:
+                await message.answer('Нет заявок по вашему запросу')
+            else:
+                data.sort(key=lambda sort: sort['n'])
+                try:
+                    for numbers in range(100):
+                        keyboard.add(types.KeyboardButton(f'{data[numbers]["id"]}: {data[numbers]["n"]}'))
+
+                except:
+                    pass
+                keyboard.add(types.KeyboardButton('Назад <-'))
+                await message.answer('Выбирите нужные заявки.\n'
+                                     'Для нового поиска нажмите "Назад <-".\n'
+                                     'Для создания маршрута нажмите "Далее ->"',
+                                     reply_markup=keyboard)
+                await States.STATE_GET_ORDERS.set()
         orders.save_time = int(time.time())
     else:
         if int(time.time()) > orders.save_time + delay:
@@ -490,7 +513,7 @@ async def cmd_add_orders(message: types.Message, state: FSMContext):
                 keyboard = types.ReplyKeyboardMarkup(row_width=2)
                 keyboard.add(types.KeyboardButton('Да'))
                 keyboard.add(types.KeyboardButton('Нет'))
-                await message.answer('Ващ маршрут состоит из следующих заявок:.\n'
+                await message.answer('Ваш маршрут состоит из следующих заявок:.\n'
                                      f'{data}'
                                      'Добавить новую заявку?',
                                      reply_markup=keyboard)
@@ -522,7 +545,7 @@ async def initial_add_orders(message: types.Message, state: FSMContext):
             await States.STATE_GET_TAG_ADD_ORDERS.set()
             orders.get_orders()
             keyboard = loyaut_keyboard_tags()
-            await message.answer('Выбирите тег', reply_markup=keyboard)
+            await message.answer('Выбирите тег или введите название заявки', reply_markup=keyboard)
         elif message.text == 'Нет':
             await message.answer('Команда отменена!', reply_markup=types.ReplyKeyboardRemove())
             await state.finish()
@@ -542,6 +565,7 @@ async def initial_add_orders(message: types.Message, state: FSMContext):
 @dp.message_handler(state=States.STATE_GET_TAG_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
 async def get_tag_add_orders(message: types.Message, state: FSMContext):
     if message.from_user.id == orders.user_id:
+        keyboard = types.ReplyKeyboardMarkup(row_width=2)
         if message.text in orders.data_by_tags.keys():
             keyboard = types.ReplyKeyboardMarkup(row_width=2)
             data_sort = sorted(orders.data_by_tags[message.text].values(), key=lambda sort: sort['n'])
@@ -556,7 +580,26 @@ async def get_tag_add_orders(message: types.Message, state: FSMContext):
                                  reply_markup=keyboard)
             await States.STATE_FINAL_ADD_ORDERS.set()
         else:
-            await message.answer('Нет такого тега')
+            data = list()
+            for order in orders.orders_list.values():
+                name = order['n'].lower()
+                if name.find(message.text.lower()) != -1:
+                    data.append(order)
+            if len(data) == 0:
+                await message.answer('Нет заявок по вашему запросу')
+            else:
+                data.sort(key=lambda sort: sort['n'])
+                try:
+                    for numbers in range(100):
+                        keyboard.add(types.KeyboardButton(f'{data[numbers]["id"]}: {data[numbers]["n"]}'))
+                except:
+                    pass
+                keyboard.add(types.KeyboardButton('Назад <-'))
+                await message.answer('Выбирите нужные заявки.\n'
+                                     'Для нового поиска нажмите "Назад <-".\n'
+                                     'Для создания маршрута нажмите "Далее ->"',
+                                     reply_markup=keyboard)
+                await States.STATE_FINAL_ADD_ORDERS.set()
         orders.save_time = int(time.time())
     else:
         if int(time.time()) > orders.save_time + delay:
