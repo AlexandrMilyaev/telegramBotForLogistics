@@ -82,7 +82,7 @@ async def get_number(message: types.Message, state: FSMContext):
     df = pd.read_csv('user.csv', delimiter=',')
     phone = df['phone_number'].tolist()
     try:
-
+        phone.index(int(dict(message.contact)['phone_number']))
         await message.answer('Ваш номер уже присутствует в списке авторизированиых номеров.\n'
                              'Отправьте команду /help для получения информации'
                              ' по доступным командам.'
