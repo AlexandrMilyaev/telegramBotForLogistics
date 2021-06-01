@@ -5,10 +5,10 @@ from aiogram.dispatcher import Dispatcher
 from aiogram.utils import executor
 from wialon import Wialon, WialonError
 import os
+import sys
 try:
     from telegram import States, comands_types, Orders, exp_calc
 except:
-    import sys
     dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
     sys.path.insert(0, dir_path)
     from telegram import States, comands_types, Orders, exp_calc
@@ -20,7 +20,10 @@ import time
 import logging
 import config
 import pandas as pd
-import requests
+
+import traceback
+
+
 print('Telegram activate!')
 
 delay = 180
@@ -468,7 +471,9 @@ async def create_route(message: types.Message, state: FSMContext):
         else:
             await message.answer(f'Я заблокирован пользователем {orders.user_name}')
     except Exception as e:
-        log.info(f'Ошибка: {e.args}')
+        tb = sys.exc_info()[2]
+        tbinfo = traceback.format_tb(tb)[0]
+        log.error(f'Traceback info:\n{tbinfo}\n{e.args}')
         log.info(f'orders: {list(orders.orders_for_route.values())}')
         log.info(f'warehouse: {list(orders.warehouses_for_route.values())}')
         orders.orders_for_route.clear()
@@ -613,7 +618,7 @@ async def get_tag_add_orders(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state=States.STATE_FINAL_ADD_ORDERS, content_types=types.ContentTypes.TEXT)
 async def final_add_orders(message: types.Message, state: FSMContext):
-    global dp
+    global dp, request
     if message.from_user.id == orders.user_id:
         user_id = message.from_user.id
         df = pd.read_csv('user.csv', delimiter=',')
@@ -750,9 +755,12 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         orders.user_name = None
                         orders.user_id = None
                     except Exception as e:
+                        tb = sys.exc_info()[2]
+                        tbinfo = traceback.format_tb(tb)[0]
+                        log.error(f'Traceback info:\n{tbinfo}\n{e.args}')
+
                         await message.answer(f'Ошибка: {e.args}',
                                              reply_markup=types.ReplyKeyboardRemove())
-                        log.info(f'Ошибка: {e.args}')
                         log.info(f'Params: {params}')
                         await state.finish()
                         data.clear()
@@ -761,7 +769,12 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         orders.user_id = None
 
             except Exception as e:
-                await message.answer(f'Ошибка:  {e.args}')
+                tb = sys.exc_info()[2]
+                tbinfo = traceback.format_tb(tb)[0]
+                log.error(f'Traceback info:\n{tbinfo}\n{e.args}')
+
+                await message.answer(f'Ошибка:  {e.args}', reply_markup=types.ReplyKeyboardRemove())
+                log.info(f'request: {request}')
                 await state.finish()
                 data.clear()
                 data_orders.clear()
