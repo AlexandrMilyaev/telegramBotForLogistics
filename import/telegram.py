@@ -2,6 +2,7 @@ import datetime
 import logging
 import time
 
+import requests
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
 import os
@@ -12,7 +13,8 @@ comands_types = {
     "/start": "Процедура авторизации",
     "/help": "Описание комант бота",
     "/add_orders": "Добавить заявку в созданый маршрут",
-    "/start_route": "Создать новый маршрут"
+    "/start_route": "Создать новый маршрут",
+    "/send_location": "Отправить координаты. (тест)"
 }
 
 
@@ -327,3 +329,13 @@ class Orders(Wialon):
             if el['uacl'] & 0x600000000:  # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
                 return el['id']
         return None
+
+    def import_messages(self, file, unit_id):
+        files = {'file': file}
+        base_url = 'https://hst-api.wialon.com/wialon/ajax.html?'
+        params = {"itemId": unit_id}
+
+        url = base_url + 'svc=exchange/import_messages&params={"itemId":%s}&sid=%s'
+        r = requests.post(url % (unit_id, self.wialon_object.sid), files=files)
+        print(r.url)
+        return r.text

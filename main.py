@@ -20,6 +20,7 @@ import time
 import logging
 import config
 import pandas as pd
+import requests
 
 import traceback
 
@@ -38,6 +39,9 @@ def loyaut_keyboard_tags():
     for keys in data:
         inline_kb_full.add(types.KeyboardButton('{}'.format(keys), callback_data='btn_tags{}'.format(keys)))
     return inline_kb_full
+
+
+
 
 
 bot = Bot(token=config.telegram_token)
@@ -137,7 +141,8 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
-    df = pd.read_csv('user.csv', delimiter=',')
+    '''
+df = pd.read_csv('user.csv', delimiter=',')
     user_id = df['user_id'].tolist()
     phone = df['phone_number'].tolist()
     pointer_user_id = user_id.index(message.from_user.id)
@@ -165,6 +170,12 @@ async def cmd_test(message: types.Message):
         if el['uacl'] & 0x600000000: # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
             return print(el['id'])
     return print(None)
+    '''
+    inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
+    inline_kb_full.add(types.KeyboardButton('Отправить свои геоданные️', request_location=True))
+    await message.answer("Отправьте свои геоданные",
+                         reply_markup=inline_kb_full)
+
 '''         
     orders.get_orders()
     origin = {}
@@ -188,8 +199,50 @@ async def cmd_test(message: types.Message):
 
 
 '''
+@dp.message_handler(state='*', commands="send_location")
+async def cmd_send_location(message: types.Message):
+    inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
+    inline_kb_full.add(types.KeyboardButton('Отправить свои геоданные️', request_location=True))
+    await message.answer("Отправьте свои геоданные",
+                         reply_markup=inline_kb_full)
+
+@dp.message_handler(state='*', content_types=types.ContentTypes.LOCATION)
+async def get_location(message: types.Message, state: FSMContext):
+    log.info(f"(message location): message: {message.text},"
+             f" user_id: {message.from_user.id} ({message.from_user.username})")
+    user_id = message.from_user.id
+    df = pd.read_csv('user.csv', delimiter=',')
+    df_user_id = df['user_id'].tolist()
+    pointer_user_id = df_user_id.index(user_id)
+    phone = df['phone_number'].tolist()
+    phone = phone[pointer_user_id]
+    driver = orders.get_driver(str(phone))
+
+    time_now = int(time.time())
+    longitude = message.location.longitude
+    latitude = message.location.latitude
+    filename = 'data_location/track{}_{}.wln'.format(driver, time_now)
 
 
+    with open(filename, 'w') as f:
+        f.write('REG;{};{};{};0;0;ALT:0.0,,;,,SATS:13,,,,;mes:"telegram";;;\n'
+                .format(time_now, str(longitude), str(latitude)))
+
+    try:
+        with open(filename, 'rb') as f:
+            orders.import_messages(f, driver)
+            await message.answer(f'Координата принята', reply_markup=types.ReplyKeyboardRemove())
+            log.info(f'Кордината принята')
+    except WialonError:
+        res = orders.token_login(token=orders.token)
+        orders.sid = res['eid']
+        with open(filename, 'rb') as f:
+            orders.import_messages(f, driver)
+            await message.answer(f'Координата принята', reply_markup=types.ReplyKeyboardRemove())
+            log.info(f'Кордината принята')
+    except Exception as e:
+        await message.answer(f'Ошибка: {e.args}', reply_markup=types.ReplyKeyboardRemove())
+        log.info(f'Ошибка: {e.args}')
 
 
 
@@ -348,6 +401,8 @@ async def get_order(message: types.Message, state: FSMContext):
     else:
         if int(time.time()) > orders.save_time + delay:
             await state.finish()
+            orders.orders_for_route.clear()
+            orders_list.clear()
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
@@ -388,6 +443,8 @@ async def initial_warehouse(message: types.Message, state: FSMContext):
     else:
         if int(time.time()) > orders.save_time + delay:
             await state.finish()
+            orders.warehouses_for_route.clear()
+            orders_list.clear()
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
@@ -430,6 +487,8 @@ async def final_warehouse(message: types.Message, state: FSMContext):
     else:
         if int(time.time()) > orders.save_time + delay:
             await state.finish()
+            orders.warehouses_for_route.clear()
+            orders_list.clear()
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
