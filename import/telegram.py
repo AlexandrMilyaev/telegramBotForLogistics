@@ -14,7 +14,9 @@ comands_types = {
     "/help": "Описание комант бота",
     "/add_orders": "Добавить заявку в созданый маршрут",
     "/start_route": "Создать новый маршрут",
-    "/send_location": "Отправить координаты. (тест)"
+    "/send_location": "Отправить координаты. (тест)",
+    "/i_am_hare": "Добавить метку по прибытию к клиенту. Создаеться новая заявка"
+
 }
 
 
@@ -184,7 +186,14 @@ class Orders(Wialon):
                     pass
                 else:
                     i = 0
-                    t_prev = data['orders'][0]['tm']
+                    # записываем данные о посещении первой точки. Проверяем на TypeError
+                    # Виалон бывает возвращает заявки (orders) в виде списка в списке orders: [[]]
+                    try:
+                        t_prev = data['orders'][0]['tm']
+                    except TypeError:
+                        element_orders = data['orders'][0]
+                        data['orders'] = element_orders
+                        t_prev = data['orders'][0]['tm']
                     ml_prev = 0
                     vt = (route_id % 86400)
                     for _ in data['orders']:

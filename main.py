@@ -300,6 +300,8 @@ async def cmd_start_route(message: types.Message, state: FSMContext):
     else:
         if int(time.time()) > orders.save_time + delay:
             await state.finish()
+            orders.orders_for_route.clear()
+            orders_list.clear()
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
@@ -334,9 +336,6 @@ async def get_tag(message: types.Message, state: FSMContext):
             data = list()
             for order in orders.orders_list.values():
                 name = order['n'].lower()
-
-
-                print(name)
                 if name.find(message.text.lower()) != -1:
                     data.append(order)
             if len(data) == 0:
@@ -359,6 +358,8 @@ async def get_tag(message: types.Message, state: FSMContext):
     else:
         if int(time.time()) > orders.save_time + delay:
             await state.finish()
+            orders.orders_for_route.clear()
+            orders_list.clear()
             orders.user_name = None
             orders.user_id = None
             await message.answer(f'Введите команду еще рас')
@@ -750,7 +751,15 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                         elif keys == 'summary':
                             pass
                         else:
-                            t_prev = data['orders'][0]['tm']
+                            # записываем данные о посещении первой точки. Проверяем на TypeError
+                            # Виалон бывает возвращает заявки (orders) в виде списка в списке orders: [[]]
+                            try:
+                                t_prev = data['orders'][0]['tm']
+                            except TypeError:
+                                element_orders = data['orders'][0]
+                                data['orders'] = element_orders
+                                t_prev = data['orders'][0]['tm']
+
                             ml_prev = 0
                             data['orders'].pop(0)
                             for _ in data['orders']:
