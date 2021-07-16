@@ -7,11 +7,11 @@ from wialon import Wialon, WialonError
 import os
 import sys
 try:
-    from telegram import States, comands_types, Orders, exp_calc
+    from telegram import States, comands_types, Orders, exp_calc, create_order
 except:
     dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
     sys.path.insert(0, dir_path)
-    from telegram import States, comands_types, Orders, exp_calc
+    from telegram import States, comands_types, Orders, exp_calc, create_order
 
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
@@ -65,8 +65,56 @@ df = pd.DataFrame({
     'user_id'
 })
 
+def create_dict_driver():
+    '''
+    Возможные значения state (NO_STATE, STATE_GET_COMMAND, STATE_GET_TAG, STATE_GET_ORDERS, STATE_INITIAL_WAREHOUSE,
+                              STATE_FINAL_WAREHOUSE, STATE_CREATE_ROUTS, STATE_GET_NUMBER, STATE_INITIAL_ADD_ORDERS,
+                              STATE_GET_TAG_ADD_ORDERS, STARE_GET_ORDERS_ADD_ORDERS, STATE_FINAL_ADD_ORDERS,
+                              I_AM_HARE_ADD_NAME_ORDERS
+    :return:
+    '''
+    df = pd.read_csv('user.csv', delimiter=',')
+    df_user_id = df['user_id'].tolist()
+    data = {
+        'driver': '',
+        'state': 'NO_STATE',
+        'data': dict()
+    }
+    for user_id in df_user_id:
+        orders.driver_data.update({f'{user_id}': data})
 
 
+
+def save_message_wln(long, lat, filename: str, time_message=None, **kwargs) -> bool:
+    '''
+    Функция записывает файл .wln с одним сообщением для даленейшего импорта в Wialon
+    :param long: Долгота
+    :param lat: Широта
+    :param time_message: время сообщения
+    :param filename: Имя файла. Указывается вместе с росположением файла
+    :param kwargs: Параметры сообщения
+    :return: возвращает булевое значение
+    '''
+    try:
+        if time_message is None:
+            time_now = int(time.time())
+        else:
+            time_now = time_message
+
+        longitude = long
+        latitude = lat
+        #filename = 'data_location/track{}_{}.wln'.format(driver, time_now)
+        data = ''
+        for key, value in kwargs.items():
+            data += f'{key}:"{value}";'
+
+        with open(filename, 'w') as f:
+            f.write('REG;{};{};{};0;0;ALT:0.0,,;,,SATS:13,,,,;{};\n'
+                    .format(time_now, str(longitude), str(latitude), str(data)))
+        return True
+    except Exception as e:
+        print(e.args)
+        return False
 
 @dp.message_handler(commands="start")
 async def cmd_test(message: types.Message):
@@ -863,17 +911,94 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
+@dp.message_handler(commands="i_am_hare")
+async def cmd_i_am_hare(message: types.Message, state: FSMContext):
+    if orders.user_id is None:
+        user_id = message.from_user.id
+        df = pd.read_csv('user.csv', delimiter=',')
+        df_user_id = df['user_id'].tolist()
+        if user_id in df_user_id:
+            phone = df['phone_number'].tolist()
+            pointer_user_id = df_user_id.index(user_id)
+            phone = phone[pointer_user_id]
+            driver = orders.get_driver(str(phone))
+            position = orders.get_last_navigation(driver)
+            data = dict(orders.driver_data[f'{user_id}'])
+            data.update({'state': 'I_AM_HARE_ADD_NAME_ORDERS'})
+            data.update({'driver': driver})
+            data.update({'data': position})
+            orders.driver_data[f'{user_id}'] = data
+            await message.answer(f'Введите название точки (клиента)')
+
+    else:
+        if int(time.time()) > orders.save_time + delay:
+            await state.finish()
+            orders.user_name = None
+            orders.user_id = None
+            await message.answer(f'Введите команду еще рас')
+        else:
+            await message.answer(f'Я заблокирован пользователем {orders.user_name}')
+
 @dp.message_handler(content_types=types.ContentTypes.TEXT)
 async def text_answer(message: types.Message):
+
     user_id = message.from_user.id
     df = pd.read_csv('user.csv', delimiter=',')
     df_user_id = df['user_id'].tolist()
     if user_id in df_user_id:
-        await message.answer('Я вас не понимаю.\n'
-                             'Отправьте команду /help для ознакомления со списком доступных команд')
+        data_user = dict(orders.driver_data[f'{user_id}'])
+        if data_user.get('state') == 'I_AM_HARE_ADD_NAME_ORDERS':
+            x = data_user['data']['x']
+            y = data_user['data']['y']
+            a = f'{str(x)}, {str(y)}'
+            try:
+                orders.get_orders()
+                order = create_order(x=x, y=y, n=message.text, callMode='create', f=1, a=a)
+                time_now = int(time.time())
+
+                order['tf'] = time_now - (time_now % 86400) - 10800
+                order['tt'] = order['tf'] + 86400
+                r = orders.update_route(order=order, driver=data_user['driver'])
+                try:
+                    for _ in r['orders']:
+                        if _['callMode'] == 'create':
+                            driver = orders.driver_data[f'{user_id}']['driver']
+                            filename = 'data_location/track{}_{}.wln'.format(driver, time_now)
+                            save_message_wln(long=x, lat=y, time_message=time_now, filename=filename, msg=message.text)
+
+                            try:
+                                with open(filename, 'rb') as f:
+                                    orders.import_messages(f, driver)
+                                    log.info(f'Кордината принята')
+                            except WialonError:
+                                res = orders.token_login(token=orders.token)
+                                orders.sid = res['eid']
+                                with open(filename, 'rb') as f:
+                                    orders.import_messages(f, driver)
+                                    log.info(f'Кордината принята')
+                            await message.answer('Заявка добавлена в маршрут')
+                            orders.driver_data[f'{user_id}']['state'] = 'NO_STATE'
+                            orders.driver_data[f'{user_id}']['data'] = {}
+                            break
+                    else:
+                        orders.driver_data[f'{user_id}']['state'] = 'NO_STATE'
+                        orders.driver_data[f'{user_id}']['data'] = {}
+                        await message.answer('Что пошло не так. Попробуйте еще раз выполнить данную команду')
+                except:
+                    orders.driver_data[f'{user_id}']['state'] = 'NO_STATE'
+                    orders.driver_data[f'{user_id}']['data'] = {}
+                    await message.answer('Что пошло не так. Попробуйте еще раз выполнить данную команду')
+            except Exception as e:
+                print(e.args)
+                orders.driver_data[f'{user_id}']['state'] = 'NO_STATE'
+                orders.driver_data[f'{user_id}']['data'] = {}
+                await message.answer(f'Ошибка: {e.args}')
+        else:
+            pass
     else:
         await message.answer('Мы не знакомы.\n'
                              'Пройдите авторизацию, отправив команду /start')
 
 if __name__ == '__main__':
+    create_dict_driver()
     executor.start_polling(dp, skip_updates=True)

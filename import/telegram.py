@@ -1,11 +1,13 @@
 import datetime
 import logging
+import os
+import sys
 import time
+import traceback
 
 import requests
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from wialon import Wialon, WialonError
-import os
 
 log = logging.getLogger(os.path.basename(__file__))
 
@@ -63,7 +65,42 @@ def exp_calc(order: list, time_value: str, ceratain=True):
         return data
 
 
+def create_order(**kwargs) -> dict:
+    time_now = int(time.time())
+    params = {
+        'id': 0,
+        'tf': time_now - (time_now % 86400),
+        'tt': time_now - (time_now % 86400) + 86400,
+        'r': 100,
+        'trt': 3600
+    }
+    for key, value in kwargs.items():
+        if key == 'n':
+            params['n'] = value
+            params['p'] = {'n': value}
+        elif key == 'a':
+            params['p']['a'] = value
+        elif key == 'p':
+            params['p']['p'] = value
+        elif key == 'y':
+            params['y'] = value
+        elif key == 'x':
+            params['x'] = value
+        elif key == 'f':
+            params['f'] = value
+        elif key == 'tf':
+            params['tf'] = value
+        elif key == 'tt':
+            params['tt'] = value
+        elif key == 'tft':
+            params['tft'] = value
+        elif key == 'callMode': params['callMode'] = value
+
+    return params
+
+
 class Orders(Wialon):
+    driver_data = dict()
     orders_for_route = dict()
     warehouses_for_route = dict()
     orders_list = dict()
@@ -244,6 +281,7 @@ class Orders(Wialon):
                         i += 1
         except WialonError as e:
             log.info(f'Ошибка: {e.args}')
+
         exp = exp_calc(order_list, "23:59")
         params = {
             "itemId": self.itemIds,
@@ -257,6 +295,151 @@ class Orders(Wialon):
         except Exception as e:
             log.info(f'Ошибка: {e.args}')
         return response
+
+    def update_route(self, order, driver):
+        data_orders = dict()
+        orders_route = list()
+        data = list()
+        route_id = int()
+        for key, route in self.orders[0]['order_routes'].items():
+            if route['st']['u'] == driver and route['st']['s'] == 1:
+                orders_route = route['ord']
+                route_id = route['uid']
+        if len(orders_route) != 0:
+            for key, order_ in self.orders[0]['orders'].items():
+                if order_['uid'] in orders_route:
+                    # order['callMode'] = ''
+                    data.append(order_)
+            data.sort(key=lambda dat: dat['p']['r']['vt'])
+            order_list = data
+            data_len = len(data) - 1
+            orders_for_route = []
+            warehouses_for_route = []
+            if data[data_len]['f'] & 8:
+                orders_for_route.append(data[data_len - 1])
+                warehouses_for_route.append(data[data_len])
+                order_list.pop()
+            else:
+                orders_for_route.append(data[data_len])
+
+
+            __ = order
+            time_now = int(time.time())
+
+            __['tf'] = time_now - (time_now % 86400) - 10800
+            __['tt'] = __['tf'] + 86400
+            __['f'] = 1
+            __['u'] = str(driver)
+            __['callMode'] = 'create'
+            orders_for_route.append(__)
+
+
+            gis = {
+                "provider": 1,  # 0-нет, 1-gurtam, 2-google
+                "addPoints": 1,  # 0-не возвращать трек, 1-вернуть трек
+                "speed": 50  # скорость для оптимизации
+            }
+            params = {
+                "itemId": self.itemIds,
+                "orders": orders_for_route,
+                "units": [driver],
+                "warehouses": warehouses_for_route,
+                "criterions": {},
+                "priority": {driver: {0: 0}},
+                "flags": 131,
+                "gis": gis
+            }
+
+            request = self.wialon_object.call('order_optimize', params)
+
+            order_warehouse = orders_for_route
+            order_warehouse.extend(warehouses_for_route)
+            vt = orders_for_route[0]['p']['r']['vt']
+            i = orders_for_route[0]['p']['r']['i']
+            i += 1
+            for keys, data in request.items():
+                if keys == 'details':
+                    pass
+                elif keys == 'success':
+                    pass
+                elif keys == 'summary':
+                    pass
+                else:
+                    # записываем данные о посещении первой точки. Проверяем на TypeError
+                    # Виалон бывает возвращает заявки (orders) в виде списка в списке orders: [[]]
+                    try:
+                        t_prev = data['orders'][0]['tm']
+                    except TypeError:
+                        element_orders = data['orders'][0]
+                        data['orders'] = element_orders
+                        t_prev = data['orders'][0]['tm']
+
+                    ml_prev = 0
+                    data['orders'].pop(0)
+                    for _ in data['orders']:
+                        number = _['id']
+                        tm = _['tm'] - t_prev
+                        ml = _['ml'] - ml_prev
+                        vt = vt + tm
+                        data_orders = dict(order_warehouse[number])
+                        data_orders['p']['r'] = {
+                            "id": route_id,  # id маршрута
+                            "i": i,  # порядковый номер (0..)
+                            "m": ml,  # пробег с предыдущей точки по плану, м
+                            "t": tm,  # время с предыдущей точки по плану, сек
+                            "vt": vt,  # время посещения по плану, UNIX_TIME
+                            "ndt": 300  # время, за которое должно прийти уведомление, с
+                        }
+                        if vt >= data_orders['tt']:
+                            data_orders['tt'] = vt + 3600
+                        t_prev = _['tm']
+                        ml_prev = _['ml']
+                        data_orders['u'] = keys
+                        data_orders['rp'] = _['p']
+
+                        if data_orders['f'] == 1:
+                            data_orders['callMode'] = 'create'
+                            data_orders['uid'] = 0
+                            data_orders['id'] = 0
+                            data_orders['st'] = 0
+                            dp = data_orders['uid']
+
+                        else:
+                            data_orders['callMode'] = 'update'
+                            # data_orders['p']['r']['vt'] -= _['tm']
+                            '''
+                                                                if data_orders['f'] == 264:
+                                dp2 = list(data_orders['dp'])
+                                dp2.append(dp)
+                                data_orders['dp'] = dp2
+                            '''
+
+                        # data_orders['itemId'] = orders.itemIds
+                        order_list.append(data_orders)
+                        i += 1
+
+            exp = exp_calc(order_list, "23:59")
+            params = {
+                "itemId": self.itemIds,
+                "orders": order_list,
+                "routeId": route_id,
+                "exp": exp,  # здесь указываем, через сколько закрываем маршрут
+                "callMode": "update"
+            }
+
+            try:
+                response = self.wialon_object.call('order_route_update', params)
+                data.clear()
+                data_orders.clear()
+                return response
+            except Exception as e:
+                tb = sys.exc_info()[2]
+                tbinfo = traceback.format_tb(tb)[0]
+                log.error(f'Traceback info:\n{tbinfo}\n{e.args}')
+                log.info(f'Params: {params}')
+                data.clear()
+                data_orders.clear()
+                return e.args
 
     def copy_order(self, id: int, flags: int) -> dict:
         '''
@@ -315,6 +498,21 @@ class Orders(Wialon):
                         return _['bu']
         return None
 
+    def get_last_navigation(self, driver):
+        params = {
+            "id": driver,
+            "flags": 1024
+        }
+        response = None
+        try:
+            response = self.wialon_object.call('core_search_item', params)
+        except WialonError:
+            res = self.wialon_object.token_login(token=self.token)
+            self.wialon_object.sid = res['eid']
+            response = self.wialon_object.call('core_search_item', params)
+        finally:
+            return response['item']['pos']
+
     def get_resource_for_orders(self):
         '''
         :return: функция возвращает id ресурса, в котором нужно создать заявки
@@ -346,5 +544,4 @@ class Orders(Wialon):
 
         url = base_url + 'svc=exchange/import_messages&params={"itemId":%s}&sid=%s'
         r = requests.post(url % (unit_id, self.wialon_object.sid), files=files)
-        print(r.url)
         return r.text
