@@ -178,7 +178,7 @@ async def cmd_help(message: types.Message):
     df = pd.read_csv('user.csv', delimiter=',')
     df_user_id = df['user_id'].tolist()
     if user_id in df_user_id:
-        msg = "Я на стадии разработки,\nно вот что я умею уже сейчас:\n"
+        msg = "Команды:\n"
         for cmd, text in comands_types.items():
             msg += cmd + ' - ' + text + '\n'
         await message.answer(msg)
@@ -911,8 +911,8 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             await message.answer(f'Я заблокирован пользователем {orders.user_name}')
 
 
-@dp.message_handler(commands="i_am_hare")
-async def cmd_i_am_hare(message: types.Message, state: FSMContext):
+@dp.message_handler(commands="i_am_here")
+async def cmd_i_am_here(message: types.Message, state: FSMContext):
     if orders.user_id is None:
         user_id = message.from_user.id
         df = pd.read_csv('user.csv', delimiter=',')
