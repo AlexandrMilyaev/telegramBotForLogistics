@@ -189,13 +189,22 @@ async def cmd_help(message: types.Message):
 
 @dp.message_handler(commands="test")
 async def cmd_test(message: types.Message):
-    '''
-df = pd.read_csv('user.csv', delimiter=',')
+
+    df = pd.read_csv('user.csv', delimiter=',')
     user_id = df['user_id'].tolist()
     phone = df['phone_number'].tolist()
     pointer_user_id = user_id.index(message.from_user.id)
     phone = phone[pointer_user_id]
     driver = orders.get_driver(str(phone))
+
+    temp = orders.get_orders()
+    print(temp[0]['order_routes'])
+    for _ in temp[0]['order_routes'].values():
+        print(_)
+        for __ in temp[0]['orders'].values():
+            if __['uid'] in _['ord']:
+                print(__)
+
     print(driver)
 
     spec = {
@@ -217,12 +226,17 @@ df = pd.read_csv('user.csv', delimiter=',')
     for el in data['items']:
         if el['uacl'] & 0x600000000: # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
             return print(el['id'])
-    return print(None)
-    '''
+    # return print(None)
+    print(orders.get_orders())
+    print(orders.orders)
+    print('test')
+
+'''
     inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
     inline_kb_full.add(types.KeyboardButton('Отправить свои геоданные️', request_location=True))
     await message.answer("Отправьте свои геоданные",
                          reply_markup=inline_kb_full)
+'''
 
 '''         
     orders.get_orders()

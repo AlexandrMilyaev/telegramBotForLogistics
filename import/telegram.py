@@ -162,24 +162,34 @@ class Orders(Wialon):
             for el in self.orders:
                 orders = el['orders']
                 for name in orders.values():
+
                     if name['f'] == 32 and name['p']['r'] is None:
-                        if name['p']['tags'] == [] or type(name['p']['tags']) == str:
+
+                        try:
+                            if name['p']['tags'] == [] or type(name['p']['tags']) == str:
+                                tags_value = tags_key.get('No_tags')
+                                tags_value = dict(tags_value)
+                                tags_value.update({name['id']: name})
+                                tags_key['No_tags'] = tags_value
+                                self.orders_list.update({name['id']: name})
+                            else:
+                                for tags in name['p']['tags']:
+                                    if tags_key.get(tags) is None:
+                                        tags_key.update({tags: ''})
+                                        tags_key[tags] = {name['id']: name}
+                                        self.orders_list.update({name['id']: name})
+                                    else:
+                                        tags_value = tags_key.get(tags)
+                                        tags_value.update({name['id']: name})
+                                        tags_key[tags] = tags_value
+                                        self.orders_list.update({name['id']: name})
+                        except:
+                            print(name)
                             tags_value = tags_key.get('No_tags')
                             tags_value = dict(tags_value)
                             tags_value.update({name['id']: name})
                             tags_key['No_tags'] = tags_value
                             self.orders_list.update({name['id']: name})
-                        else:
-                            for tags in name['p']['tags']:
-                                if tags_key.get(tags) is None:
-                                    tags_key.update({tags: ''})
-                                    tags_key[tags] = {name['id']: name}
-                                    self.orders_list.update({name['id']: name})
-                                else:
-                                    tags_value = tags_key.get(tags)
-                                    tags_value.update({name['id']: name})
-                                    tags_key[tags] = tags_value
-                                    self.orders_list.update({name['id']: name})
                     elif name['f'] & 4 and name['p']['r'] is None:
                         self.warehouse.update({name['id']: name})
 
