@@ -445,7 +445,7 @@ async def get_order(message: types.Message, state: FSMContext):
         elif message.text[message.text.find(':') + 2:] in data:
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.copy_order(id_orders, 1)
+                data_orders = orders.copy_order(id_orders, 0)
                 orders.orders_for_route.update({id_orders: data_orders})
                 orders_list.append(message.text)
                 await message.answer(f'Заявка "{message.text}" добавлена в список для состовления маршрута')
@@ -752,7 +752,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
             data_orders = None
             try:
                 id_orders = int(message.text[:message.text.find(':')])
-                data_orders = orders.copy_order(id_orders, 1)
+                data_orders = orders.copy_order(id_orders, 0)
                 data_orders['callMode'] = "create"
                 phone = df['phone_number'].tolist()
                 pointer_user_id = df_user_id.index(user_id)
@@ -845,7 +845,7 @@ async def final_add_orders(message: types.Message, state: FSMContext):
                                 data_orders['u'] = keys
                                 data_orders['rp'] = _['p']
 
-                                if data_orders['f'] == 1:
+                                if data_orders['f'] == 0:
                                     data_orders['callMode'] = 'create'
                                     data_orders['uid'] = 0
                                     data_orders['id'] = 0

@@ -248,7 +248,7 @@ class Orders(Wialon):
                         number = _['id']
                         if type(order_warehouse[number]) is int:
                             data_orders = self.orders[0]['orders'][f'{order_warehouse[number]}']
-                            data_orders['f'] = 1
+                            data_orders['f'] = 0
                         elif type(order_warehouse[number]) is dict:
                             data_orders = order_warehouse[number]
                         # if ((route_id + time.altzone) % 86400) >= _['tm']:
@@ -338,7 +338,7 @@ class Orders(Wialon):
 
             __['tf'] = time_now - (time_now % 86400) - 10800
             __['tt'] = __['tf'] + 86400
-            __['f'] = 1
+            __['f'] = 0
             __['u'] = str(driver)
             __['callMode'] = 'create'
             orders_for_route.append(__)
@@ -407,7 +407,7 @@ class Orders(Wialon):
                         data_orders['u'] = keys
                         data_orders['rp'] = _['p']
 
-                        if data_orders['f'] == 1:
+                        if data_orders['f'] == 0:
                             data_orders['callMode'] = 'create'
                             data_orders['uid'] = 0
                             data_orders['id'] = 0
