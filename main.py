@@ -9,7 +9,7 @@ import sys
 try:
     from telegram import States, comands_types, Orders, exp_calc, create_order
 except:
-    dir_path = os.path.dirname(os.path.realpath('import/telegram.py'))
+    dir_path = os.path.dirname(os.path.realpath('telegram.py'))
     sys.path.insert(0, dir_path)
     from telegram import States, comands_types, Orders, exp_calc, create_order
 
