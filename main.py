@@ -225,11 +225,21 @@ async def cmd_test(message: types.Message):
     print(data)
     for el in data['items']:
         if el['uacl'] & 0x600000000: # Просмотр заявок и его свойств, создание/редактирование/удаление заявок
-            return print(el['id'])
+            print(el['id'])
     # return print(None)
     print(orders.get_orders())
     print(orders.orders)
     print('test')
+
+    id_order = 558
+    uid_order = 99441377819373
+    params = {
+        "itemId": orders.itemIds,
+        "orders": [id_order]
+    }
+    data = wialon_api.call('order_complete_from_history', params)
+    print(data)
+
 
 '''
     inline_kb_full = types.ReplyKeyboardMarkup(row_width=2)
@@ -582,6 +592,22 @@ async def create_route(message: types.Message, state: FSMContext):
                 await state.finish()
                 orders.user_name = None
                 orders.user_id = None
+                # записываем последнюю координату
+                position = orders.get_last_navigation(driver)
+                filename = 'data_location/track{}_{}.wln'.format(driver, int(time.time()))
+                save_message_wln(long=position['x'], lat=position['y'], time_message=int(time.time()),
+                                 filename=filename, msg="Маршрут создан")
+                try:
+                    with open(filename, 'rb') as f:
+                        orders.import_messages(f, driver)
+                        log.info(f'Кордината принята')
+                except WialonError:
+                    res = orders.token_login(token=orders.token)
+                    orders.sid = res['eid']
+                    with open(filename, 'rb') as f:
+                        orders.import_messages(f, driver)
+                        log.info(f'Кордината принята')
+
 
             elif message.text == 'Нет':
                 orders.orders_for_route.clear()
